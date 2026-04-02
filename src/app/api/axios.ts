@@ -15,12 +15,13 @@ const api = axios.create({
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 403) {
-            // Token expired or unauthorized – clear session
+        // Important:
+        // - 401 means "not authenticated" → redirect to login
+        // - 403 means "authenticated but forbidden" → do NOT logout/redirect
+        //   (otherwise any forbidden request kicks the user out)
+        if (error.response?.status === 401) {
             sessionStorage.removeItem('user');
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
-            }
+            if (window.location.pathname !== '/login') window.location.href = '/login';
         }
         return Promise.reject(error);
     }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, ArrowLeft, User } from 'lucide-react';
+import { motion } from 'motion/react';
 import { accountsApi } from '../app/api/accounts';
 import { schoolsApi, type SchoolResponse } from '../app/api/schools';
 import { schoolClassesApi, type SchoolClassResponse } from '../app/api/schoolClasses';
@@ -12,9 +13,11 @@ export const EditProfilePage: React.FC = () => {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
+    nickname: '',
     firstName: '',
     lastName: '',
-    phone: '',
+    middleName: '',
+    description: '',
     schoolId: '',
     classId: '',
   });
@@ -31,16 +34,14 @@ export const EditProfilePage: React.FC = () => {
         const accRes = await accountsApi.getAccount(user.nickname);
         const acc = accRes.data;
         setForm({
+          nickname: acc.nickname ?? '',
           firstName: acc.firstName ?? '',
           lastName: acc.lastName ?? '',
-          phone: acc.phone ?? '',
-          schoolId: acc.school?.id.toString() ?? '',
-          classId: acc.schoolClass?.id.toString() ?? '',
+          middleName: acc.middleName ?? '',
+          description: acc.description ?? '',
+          schoolId: '',
+          classId: '',
         });
-        if (acc.school?.id) {
-          const clRes = await schoolClassesApi.getBySchool(acc.school.id);
-          setClasses(clRes.data);
-        }
         const schRes = await schoolsApi.getAll();
         setSchools(schRes.data);
       } catch {
@@ -68,9 +69,11 @@ export const EditProfilePage: React.FC = () => {
     setSaving(true);
     try {
       const fd = new FormData();
-      fd.append('firstName', form.firstName.trim());
-      fd.append('lastName', form.lastName.trim());
-      fd.append('phone', form.phone.trim());
+      if (form.nickname.trim()) fd.append('nickname', form.nickname.trim());
+      if (form.firstName.trim()) fd.append('firstName', form.firstName.trim());
+      if (form.lastName.trim()) fd.append('lastName', form.lastName.trim());
+      if (form.middleName.trim()) fd.append('middleName', form.middleName.trim());
+      if (form.description.trim()) fd.append('description', form.description.trim());
       if (form.schoolId) fd.append('schoolId', form.schoolId);
       if (form.classId) fd.append('classId', form.classId);
       if (photo) fd.append('photo', photo);
@@ -86,84 +89,111 @@ export const EditProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-8 animate-pulse">
-        <div className="bg-white rounded-2xl border border-gray-100 p-8 space-y-4">
-          {[1,2,3,4].map((i) => <div key={i} className="h-10 bg-gray-100 rounded-xl" />)}
+      <div className="max-w-xl mx-auto px-6 py-10 animate-pulse">
+        <div className="bg-white rounded-2xl border border-gray-100 p-8 space-y-5">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-12 bg-gray-100 rounded-xl" />)}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-8">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45 }}
+      className="max-w-xl mx-auto px-6 py-10"
+    >
       <button
         onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-6 transition-colors"
+        className="inline-flex items-center gap-2 text-base text-gray-500 hover:text-gray-700 mb-6 transition-colors group"
       >
-        <ArrowLeft className="size-4" />
+        <ArrowLeft className="size-5 group-hover:-translate-x-0.5 transition-transform" />
         Назад
       </button>
 
       <div className="bg-white rounded-2xl border border-gray-100 p-8">
-        <h1 className="text-gray-900 mb-6">Редактирование профиля</h1>
+        <h1 className="text-gray-900 text-2xl font-bold mb-6">Редактирование профиля</h1>
 
         {/* Avatar */}
-        <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-          <div className="size-16 rounded-2xl bg-indigo-100 flex items-center justify-center">
-            <User className="size-7 text-indigo-400" />
+        <div className="flex items-center gap-5 mb-7 pb-7 border-b border-gray-100">
+          <div className="size-18 rounded-2xl bg-indigo-100 flex items-center justify-center" style={{ width: 72, height: 72 }}>
+            <User className="size-8 text-indigo-400" />
           </div>
           <div>
-            <p className="text-sm text-gray-600 mb-2">Фото профиля</p>
+            <p className="text-base text-gray-600 mb-2">Фото профиля</p>
             <input
               type="file"
               accept=".jpg,.jpeg,.png"
               onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-              className="text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
             />
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
+          <div>
+            <label className="block text-base text-gray-700 font-medium mb-2">Никнейм</label>
+            <input
+              type="text"
+              value={form.nickname}
+              onChange={(e) => setForm({ ...form, nickname: e.target.value })}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+              placeholder="Ваш никнейм"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1.5">Имя</label>
+              <label className="block text-base text-gray-700 font-medium mb-2">Имя</label>
               <input
                 type="text"
                 value={form.firstName}
                 onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
                 placeholder="Иван"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1.5">Фамилия</label>
+              <label className="block text-base text-gray-700 font-medium mb-2">Фамилия</label>
               <input
                 type="text"
                 value={form.lastName}
                 onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
                 placeholder="Иванов"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1.5">Телефон</label>
+            <label className="block text-base text-gray-700 font-medium mb-2">Отчество</label>
             <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="+7 (999) 000-00-00"
+              type="text"
+              value={form.middleName}
+              onChange={(e) => setForm({ ...form, middleName: e.target.value })}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+              placeholder="Иванович"
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1.5">Школа</label>
+            <label className="block text-base text-gray-700 font-medium mb-2">О себе</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={3}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+              placeholder="Расскажите о себе..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-base text-gray-700 font-medium mb-2">Школа</label>
             <select
               value={form.schoolId}
               onChange={(e) => handleSchoolChange(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
             >
               <option value="">Не выбрано</option>
               {schools.map((s) => (
@@ -174,11 +204,11 @@ export const EditProfilePage: React.FC = () => {
 
           {classes.length > 0 && (
             <div>
-              <label className="block text-sm text-gray-600 mb-1.5">Класс</label>
+              <label className="block text-base text-gray-700 font-medium mb-2">Класс</label>
               <select
                 value={form.classId}
                 onChange={(e) => setForm({ ...form, classId: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
               >
                 <option value="">Не выбрано</option>
                 {classes.map((c) => (
@@ -188,20 +218,22 @@ export const EditProfilePage: React.FC = () => {
             </div>
           )}
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
             onClick={handleSave}
             disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 mt-2"
+            className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white text-base font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 mt-2"
           >
             {saving ? (
-              <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              <Save className="size-4" />
+              <Save className="size-5" />
             )}
             {saving ? 'Сохранение...' : 'Сохранить'}
-          </button>
+          </motion.button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

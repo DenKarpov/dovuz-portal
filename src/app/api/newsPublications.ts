@@ -12,7 +12,7 @@ export interface PublicationResponse {
   title: string;
   description: string;
   created_at: string;
-  author_nickname: string;
+  nickname: string;
   files: FileInfo[];
 }
 

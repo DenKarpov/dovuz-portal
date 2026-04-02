@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Newspaper, Plus, Calendar, User } from 'lucide-react';
+import { Newspaper, Plus, Calendar, User, Download, ArrowRight, Search, Filter } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { newsPublicationsApi, type PublicationResponse } from '../app/api/newsPublications';
 import { Pagination } from '../app/components/Pagination';
 import { Modal } from '../app/components/Modal';
+import { filesApi } from '../app/api/files';
+import type { FileInfo } from '../app/api/newsPublications';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
@@ -13,6 +16,10 @@ export const NewsPage: React.FC = () => {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [authorFilter, setAuthorFilter] = useState('');
+  const [onlyWithFiles, setOnlyWithFiles] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ title: '', description: '' });
   const [files, setFiles] = useState<FileList | null>(null);
@@ -40,9 +47,7 @@ export const NewsPage: React.FC = () => {
       const fd = new FormData();
       fd.append('title', form.title.trim());
       fd.append('description', form.description.trim());
-      if (files) {
-        Array.from(files).forEach((f) => fd.append('files', f));
-      }
+      if (files) Array.from(files).forEach((f) => fd.append('files', f));
       await newsPublicationsApi.create(fd);
       toast.success('Публикация создана');
       setCreateOpen(false);
@@ -60,124 +65,278 @@ export const NewsPage: React.FC = () => {
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
 
+  const getExtension = (name: string) => name.split('.').pop()?.toUpperCase() ?? '';
+  const isImageFile = (file: FileInfo) => ['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP'].includes(getExtension(file.initial_file_name));
+
+  const handleDownload = async (file: FileInfo) => {
+    try {
+      await filesApi.downloadFile(file.file_name_in_directory, file.initial_file_name);
+    } catch {
+      toast.error('Ошибка при загрузке файла');
+    }
+  };
+
+  const displayed = news
+    .filter((n) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (q) {
+        const inTitle = (n.title ?? '').toLowerCase().includes(q);
+        const inDesc = (n.description ?? '').toLowerCase().includes(q);
+        if (!inTitle && !inDesc) return false;
+      }
+      if (authorFilter.trim() && !(n.nickname ?? '').toLowerCase().includes(authorFilter.trim().toLowerCase())) return false;
+      if (onlyWithFiles && (!n.files || n.files.length === 0)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const da = new Date(a.created_at).getTime();
+      const db = new Date(b.created_at).getTime();
+      return sortBy === 'newest' ? db - da : da - db;
+    });
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-6 py-10">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45 }}
+        className="flex items-center justify-between mb-10"
+      >
         <div className="flex items-center gap-3">
-          <div className="size-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-            <Newspaper className="size-5 text-indigo-600" />
+          <div className="size-12 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+            <Newspaper className="size-6 text-white" />
           </div>
           <div>
-            <h1 className="text-gray-900">Новости</h1>
-            <p className="text-xs text-gray-400">Последние события университета</p>
+            <h1 className="text-slate-900 text-2xl font-bold">📰 Новости</h1>
+            <p className="text-slate-400 text-base">Последние события университета</p>
           </div>
         </div>
         {isModerator && (
-          <button
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 transition-colors"
+            className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-base font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200"
           >
-            <Plus className="size-4" />
+            <Plus className="size-5" />
             Создать
-          </button>
+          </motion.button>
         )}
+      </motion.div>
+
+      {/* Search + filters */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-8">
+        <div className="relative xl:col-span-4">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="🔍 Поиск по заголовку или описанию..."
+            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm"
+          />
+        </div>
+        <div className="relative xl:col-span-4">
+          <User className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
+          <input
+            value={authorFilter}
+            onChange={(e) => setAuthorFilter(e.target.value)}
+            placeholder="👤 Фильтр по автору..."
+            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm"
+          />
+        </div>
+        <div className="flex items-center gap-3 xl:col-span-4">
+          <button
+            type="button"
+            onClick={() => setOnlyWithFiles(v => !v)}
+            className={`flex-1 min-w-[190px] inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl border text-base font-medium transition-colors ${
+              onlyWithFiles ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+            title="Показывать только новости с файлами"
+          >
+            <Filter className="size-5" />
+            {onlyWithFiles ? 'С файлами: да' : 'С файлами: нет'}
+          </button>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="px-4 py-3.5 rounded-2xl border border-slate-200 bg-white text-base min-w-[160px]"
+            title="Сортировка"
+          >
+            <option value="newest">Сначала новые</option>
+            <option value="oldest">Сначала старые</option>
+          </select>
+        </div>
       </div>
 
       {/* List */}
       {loading ? (
-        <div className="space-y-4">
-          {[1,2,3].map((i) => (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 animate-pulse">
-              <div className="h-5 bg-gray-100 rounded w-2/3 mb-3" />
-              <div className="h-4 bg-gray-100 rounded w-full mb-2" />
-              <div className="h-4 bg-gray-100 rounded w-3/4" />
+        <div className="space-y-5">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-2xl border border-slate-100 p-7 animate-pulse">
+              <div className="h-6 bg-slate-100 rounded w-2/3 mb-4" />
+              <div className="h-4 bg-slate-100 rounded w-full mb-2" />
+              <div className="h-4 bg-slate-100 rounded w-3/4" />
             </div>
           ))}
         </div>
-      ) : news.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <Newspaper className="size-12 mx-auto mb-3 opacity-30" />
-          <p>Новостей пока нет</p>
-        </div>
+      ) : displayed.length === 0 ? (
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-24 bg-white rounded-2xl border border-dashed border-slate-200"
+          >
+            <Newspaper className="size-14 mx-auto mb-4 text-slate-300" />
+            <p className="text-slate-400 text-lg">{news.length === 0 ? 'Новостей пока нет' : '🔍 Ничего не найдено по фильтрам'}</p>
+          </motion.div>
+        </AnimatePresence>
       ) : (
-        <div className="space-y-4">
-          {news.map((item) => (
-            <Link
+        <div className="space-y-5">
+          {displayed.map((item, index) => (
+            <motion.div
               key={item.id}
-              to={`/news/${item.id}`}
-              className="block bg-white rounded-2xl border border-gray-100 p-6 hover:border-indigo-200 hover:shadow-sm transition-all group"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: index * 0.06 }}
+              whileHover={{ x: 4 }}
             >
-              <h3 className="text-gray-900 group-hover:text-indigo-700 transition-colors mb-2">
-                {item.title}
-              </h3>
-              {item.description && (
-                <p className="text-sm text-gray-500 line-clamp-2 mb-3">{item.description}</p>
-              )}
-              <div className="flex items-center gap-4 text-xs text-gray-400">
-                <span className="flex items-center gap-1">
-                  <Calendar className="size-3.5" />
-                  {formatDate(item.created_at)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <User className="size-3.5" />
-                  {item.author_nickname}
-                </span>
-                {item.files?.length > 0 && (
-                  <span className="text-indigo-500">{item.files.length} файл(а)</span>
-                )}
-              </div>
-            </Link>
+              <Link
+                to={`/news/${item.id}`}
+                className="group block bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 hover:shadow-lg transition-all duration-300"
+              >
+                {/* Images row at top */}
+                {item.files && item.files.length > 0 && (() => {
+                  const imageFiles = item.files.filter(isImageFile);
+                  return imageFiles.length > 0 ? (
+                    <div className="overflow-hidden rounded-t-2xl">
+                      {imageFiles.length === 1 ? (
+                        <img
+                          src={filesApi.getPhotoUrl(imageFiles[0].file_name_in_directory)}
+                          alt={imageFiles[0].initial_file_name}
+                          className="w-full h-52 object-cover"
+                          loading="lazy"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="grid grid-cols-3 gap-px bg-slate-100">
+                          {imageFiles.slice(0, 3).map((f) => (
+                            <img
+                              key={f.id}
+                              src={filesApi.getPhotoUrl(f.file_name_in_directory)}
+                              alt={f.initial_file_name}
+                              className="w-full h-40 object-cover"
+                              loading="lazy"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+
+                <div className="p-7">
+                  <h3 className="text-slate-900 text-lg font-bold group-hover:text-indigo-700 transition-colors mb-2.5 leading-snug">
+                    {item.title}
+                  </h3>
+
+                  {item.description && (
+                    <p className="text-slate-500 leading-relaxed mb-4 line-clamp-2">{item.description}</p>
+                  )}
+
+                  {/* Non-image attachments */}
+                  {item.files && item.files.length > 0 && (() => {
+                    const attachedFiles = item.files.filter((f) => !isImageFile(f));
+                    return attachedFiles.length > 0 ? (
+                      <div className="mb-4 flex flex-wrap items-center gap-2">
+                        {attachedFiles.slice(0, 3).map((f) => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDownload(f); }}
+                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
+                          >
+                            <Download className="size-4 text-slate-400" />
+                            <span className="text-sm text-slate-700 truncate max-w-[10rem]">{f.initial_file_name}</span>
+                          </button>
+                        ))}
+                        {attachedFiles.length > 3 && (
+                          <span className="text-sm text-slate-400">+{attachedFiles.length - 3} файл(ов)</span>
+                        )}
+                      </div>
+                    ) : null;
+                  })()}
+
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                    <div className="flex flex-wrap items-center gap-5 text-sm text-slate-400">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="size-4" />
+                        {formatDate(item.created_at)}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <User className="size-4" />
+                        <span className="text-slate-700 font-medium">{item.nickname}</span>
+                      </span>
+                    </div>
+                    <span className="flex items-center gap-1.5 text-sm text-indigo-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                      Читать <ArrowRight className="size-4" />
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
           ))}
         </div>
       )}
 
+      {/* Note: pagination still uses backend paging; filters are client-side for the loaded page */}
       <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
 
       {/* Create Modal */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Новая новость">
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-5">
           <div>
-            <label className="block text-sm text-gray-600 mb-1.5">Заголовок *</label>
+            <label className="block text-base text-slate-700 font-medium mb-2">Заголовок *</label>
             <input
               type="text"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
               placeholder="Введите заголовок"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1.5">Описание</label>
+            <label className="block text-base text-slate-700 font-medium mb-2">Описание</label>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={4}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none bg-slate-50 focus:bg-white transition-all"
               placeholder="Введите описание"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1.5">Файлы</label>
+            <label className="block text-base text-slate-700 font-medium mb-2">Файлы</label>
             <input
               type="file"
               multiple
               accept=".pdf,.ppt,.pptx,.doc,.docx,.jpg,.png"
               onChange={(e) => setFiles(e.target.files)}
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="w-full text-base text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-base file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
             />
           </div>
           <div className="flex gap-3 pt-2">
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="flex-1 py-2.5 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+              className="flex-1 py-3 bg-indigo-600 text-white text-base font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
             >
               {creating ? 'Создание...' : 'Создать'}
             </button>
             <button
               onClick={() => setCreateOpen(false)}
-              className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm rounded-xl hover:bg-gray-200 transition-colors"
+              className="flex-1 py-3 bg-slate-100 text-slate-700 text-base rounded-xl hover:bg-slate-200 transition-colors"
             >
               Отмена
             </button>

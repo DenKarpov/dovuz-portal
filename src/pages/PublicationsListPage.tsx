@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { FileText, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { FileText, ChevronRight, Plus, Trash2, Search, ArrowRight } from 'lucide-react';
+import { motion } from 'motion/react';
 import { publicationsApi, type PublicationTitleAndId } from '../app/api/publications';
+import { subjectTopicsApi, type SubjectTopicResponse } from '../app/api/subjectTopics';
+import { subjectsApi, type SubjectResponse } from '../app/api/subjects';
+import { directionsApi, type DirectionResponse } from '../app/api/directions';
 import { Pagination } from '../app/components/Pagination';
 import { Modal } from '../app/components/Modal';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +15,7 @@ export const PublicationsListPage: React.FC = () => {
   const { topicId } = useParams<{ topicId: string }>();
   const { user, isModerator } = useAuth();
   const [publications, setPublications] = useState<PublicationTitleAndId[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -18,6 +23,18 @@ export const PublicationsListPage: React.FC = () => {
   const [form, setForm] = useState({ title: '', description: '' });
   const [files, setFiles] = useState<FileList | null>(null);
   const [creating, setCreating] = useState(false);
+
+  const [topicName, setTopicName] = useState('');
+  const [subjectName, setSubjectName] = useState('');
+  const [subjectId, setSubjectId] = useState<number | null>(null);
+  const [directionName, setDirectionName] = useState('');
+  const [directionId, setDirectionId] = useState<number | null>(null);
+
+  const filteredPublications = publications.filter((p) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return p.title.toLowerCase().includes(q);
+  });
 
   const fetchPublications = async (p = 0) => {
     setLoading(true);
@@ -33,7 +50,41 @@ export const PublicationsListPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchPublications(0); }, [topicId]);
+  useEffect(() => {
+    fetchPublications(0);
+
+    // Build breadcrumb: load topic → subject → direction
+    subjectTopicsApi.getBySubject(0, 0, 1).catch(() => {}); // not useful, we need by topic
+    // Fetch the topic's subject via searching all subjects of all directions
+    const buildBreadcrumb = async () => {
+      try {
+        const dirRes = await directionsApi.getAll();
+        const dirs: DirectionResponse[] = dirRes.data;
+        for (const dir of dirs) {
+          try {
+            const subRes = await subjectsApi.getByDirection(dir.id, 0, 100);
+            for (const sub of subRes.data.content as SubjectResponse[]) {
+              try {
+                const topicsRes = await subjectTopicsApi.getBySubject(sub.id, 0, 100);
+                const found = topicsRes.data.content.find(
+                  (t: SubjectTopicResponse) => t.id === Number(topicId)
+                );
+                if (found) {
+                  setTopicName(found.name);
+                  setSubjectName(sub.name);
+                  setSubjectId(sub.id);
+                  setDirectionName(dir.name);
+                  setDirectionId(dir.id);
+                  return;
+                }
+              } catch { /* continue */ }
+            }
+          } catch { /* continue */ }
+        }
+      } catch { /* ignore */ }
+    };
+    buildBreadcrumb();
+  }, [topicId]);
 
   const handleCreate = async () => {
     if (!form.title.trim()) return toast.error('Введите заголовок');
@@ -45,7 +96,7 @@ export const PublicationsListPage: React.FC = () => {
       fd.append('subjectTopicId', topicId!);
       if (files) Array.from(files).forEach((f) => fd.append('files', f));
       await publicationsApi.create(fd);
-      toast.success('Публикация создана');
+      toast.success('✅ Публикация создана');
       setCreateOpen(false);
       setForm({ title: '', description: '' });
       setFiles(null);
@@ -61,7 +112,7 @@ export const PublicationsListPage: React.FC = () => {
     if (!window.confirm('Удалить публикацию?')) return;
     try {
       await publicationsApi.delete(id);
-      toast.success('Публикация удалена');
+      toast.success('🗑️ Публикация удалена');
       fetchPublications(page);
     } catch {
       toast.error('Ошибка удаления');
@@ -69,125 +120,154 @@ export const PublicationsListPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-5xl mx-auto px-6 py-10">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45 }}
+        className="flex items-center justify-between mb-6"
+      >
         <div className="flex items-center gap-3">
-          <div className="size-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-            <FileText className="size-5 text-indigo-600" />
+          <div className="size-12 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+            <FileText className="size-6 text-white" />
           </div>
           <div>
-            <h1 className="text-gray-900">Публикации</h1>
-            <p className="text-xs text-gray-400">Материалы раздела</p>
+            <h1 className="text-slate-900 text-2xl font-bold">{topicName || 'Публикации'}</h1>
+            <p className="text-slate-400 text-base">📄 Материалы раздела</p>
           </div>
         </div>
         {user && (
-          <button
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 transition-colors"
+            className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-base font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200"
           >
-            <Plus className="size-4" />
+            <Plus className="size-5" />
             Создать
-          </button>
+          </motion.button>
         )}
-      </div>
+      </motion.div>
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm text-gray-400 mb-6">
-        <Link to="/directions" className="hover:text-indigo-600 transition-colors">Направления</Link>
-        <ChevronRight className="size-3.5" />
-        <span>...</span>
-        <ChevronRight className="size-3.5" />
-        <span className="text-gray-600">Публикации</span>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        className="flex items-center gap-2 text-base text-slate-400 mb-8 flex-wrap"
+      >
+        <Link to="/directions" className="hover:text-indigo-600 transition-colors">📚 Направления</Link>
+        <ChevronRight className="size-4" />
+        {directionId ? (
+          <Link to={`/directions/${directionId}/subjects`} className="hover:text-indigo-600 transition-colors">{directionName}</Link>
+        ) : <span>...</span>}
+        <ChevronRight className="size-4" />
+        {subjectId ? (
+          <Link to={`/subjects/${subjectId}/topics`} className="hover:text-indigo-600 transition-colors">{subjectName}</Link>
+        ) : <span>...</span>}
+        <ChevronRight className="size-4" />
+        <span className="text-slate-700 font-medium">{topicName || '...'}</span>
+      </motion.div>
+
+      {/* Search */}
+      <div className="relative mb-8">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="🔍 Поиск по названию публикации..."
+          className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm"
+        />
       </div>
 
       {loading ? (
-        <div className="space-y-3">
-          {[1,2,3,4].map((i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-20 bg-slate-100 rounded-2xl animate-pulse" />
           ))}
         </div>
-      ) : publications.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <FileText className="size-12 mx-auto mb-3 opacity-30" />
-          <p>Публикаций пока нет</p>
-        </div>
+      ) : filteredPublications.length === 0 ? (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
+          <FileText className="size-14 mx-auto mb-4 text-slate-300" />
+          <p className="text-slate-400 text-lg">{publications.length === 0 ? '📭 Публикаций пока нет' : '🔍 Ничего не найдено'}</p>
+        </motion.div>
       ) : (
-        <div className="space-y-2">
-          {publications.map((p) => (
-            <div
+        <div className="space-y-3">
+          {filteredPublications.map((p, idx) => (
+            <motion.div
               key={p.id}
-              className="group flex items-center justify-between bg-white rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-sm transition-all px-5 py-4"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: idx * 0.04 }}
+              whileHover={{ x: 3 }}
+              className="group"
             >
-              <Link
-                to={`/publications/${p.id}`}
-                className="flex items-center gap-3 flex-1 min-w-0"
-              >
-                <div className="size-9 bg-indigo-50 rounded-lg flex items-center justify-center shrink-0">
-                  <FileText className="size-4 text-indigo-600" />
-                </div>
-                <span className="text-sm text-gray-800 group-hover:text-indigo-700 transition-colors truncate">
-                  {p.title}
-                </span>
-              </Link>
-              {isModerator && (
-                <button
-                  onClick={() => handleDelete(p.id)}
-                  className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+              <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all px-6 py-5">
+                <Link
+                  to={`/publications/${p.id}`}
+                  className="flex items-center gap-4 flex-1 min-w-0"
                 >
-                  <Trash2 className="size-4" />
-                </button>
-              )}
-            </div>
+                  <div className="size-11 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+                    <FileText className="size-5 text-indigo-600" />
+                  </div>
+                  <span className="text-base text-slate-800 group-hover:text-indigo-700 transition-colors truncate font-medium">
+                    {p.title}
+                  </span>
+                  <ArrowRight className="size-4 text-slate-300 group-hover:text-indigo-400 shrink-0 ml-auto transition-colors" />
+                </Link>
+                {isModerator && (
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    className="p-2 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 shrink-0 ml-3"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                )}
+              </div>
+            </motion.div>
           ))}
         </div>
       )}
 
       <Pagination currentPage={page} totalPages={totalPages} onPageChange={fetchPublications} />
 
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Новая публикация">
-        <div className="p-6 space-y-4">
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="📝 Новая публикация">
+        <div className="p-6 space-y-5">
           <div>
-            <label className="block text-sm text-gray-600 mb-1.5">Заголовок *</label>
+            <label className="block text-base text-slate-700 font-medium mb-2">Заголовок *</label>
             <input
               type="text"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
               placeholder="Введите заголовок"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1.5">Описание</label>
+            <label className="block text-base text-slate-700 font-medium mb-2">Описание</label>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
               placeholder="Описание материала"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1.5">Файлы</label>
+            <label className="block text-base text-slate-700 font-medium mb-2">📎 Файлы</label>
             <input
               type="file"
               multiple
               accept=".pdf,.ppt,.pptx,.doc,.docx,.jpg,.png"
               onChange={(e) => setFiles(e.target.files)}
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="w-full text-base text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-base file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
             />
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={handleCreate}
-              disabled={creating}
-              className="flex-1 py-2.5 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
-            >
-              {creating ? 'Создание...' : 'Создать'}
+            <button onClick={handleCreate} disabled={creating} className="flex-1 py-3 bg-indigo-600 text-white text-base rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60">
+              {creating ? 'Создание...' : '🚀 Создать'}
             </button>
-            <button
-              onClick={() => setCreateOpen(false)}
-              className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm rounded-xl hover:bg-gray-200 transition-colors"
-            >
+            <button onClick={() => setCreateOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 text-base rounded-xl hover:bg-slate-200 transition-colors">
               Отмена
             </button>
           </div>

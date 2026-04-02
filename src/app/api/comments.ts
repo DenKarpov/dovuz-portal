@@ -23,11 +23,11 @@ export const commentsApi = {
   getById: (id: number) =>
     api.get<CommentResponse>(`/comments/${id}`),
 
-  update: (id: number, content: string) =>
-    api.put<CommentResponse>('/comments', { id, content }),
+    update: (id: number, content: string) =>
+        api.put('/comments', { id, content }), // Убедитесь, что путь совпадает с @RequestMapping в контроллере
 
-  delete: (id: number) =>
-    api.delete(`/comments/${id}`),
+    delete: (id: number) =>
+        api.delete(`/comments/${id}`),
 
   getByPublication: (publicationId: number, pageNumber: number, pageSize: number) =>
     api.get<PageResponse<CommentResponse>>('/comments', {

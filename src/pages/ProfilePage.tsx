@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { User, Mail, Phone, School, Edit3 } from 'lucide-react';
+import { User, Mail, School, Edit3 } from 'lucide-react';
 import { accountsApi, type AccountResponse } from '../app/api/accounts';
 import { filesApi } from '../app/api/files';
 import { useAuth } from '../context/AuthContext';
@@ -53,9 +53,9 @@ export const ProfilePage: React.FC = () => {
         <div className="flex items-start justify-between gap-6 mb-8">
           <div className="flex items-center gap-5">
             <div className="size-20 rounded-2xl bg-indigo-100 flex items-center justify-center overflow-hidden shrink-0">
-              {account.photoUrl ? (
+              {account.photoNameInDirectory ? (
                 <img
-                  src={filesApi.getPhotoUrl(account.photoUrl)}
+                  src={filesApi.getPhotoUrl(account.photoNameInDirectory)}
                   alt={account.nickname}
                   className="w-full h-full object-cover"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -70,7 +70,7 @@ export const ProfilePage: React.FC = () => {
                 <span className={`px-2.5 py-0.5 rounded-lg text-xs ${roleColors[account.role] ?? 'bg-gray-50 text-gray-600'}`}>
                   {account.role}
                 </span>
-                {!account.active && (
+                {account.isBanned && (
                   <span className="px-2.5 py-0.5 rounded-lg text-xs bg-red-50 text-red-600">
                     Заблокирован
                   </span>
@@ -103,18 +103,12 @@ export const ProfilePage: React.FC = () => {
             <Mail className="size-4 text-gray-400 shrink-0" />
             <span className="text-gray-700">{account.email}</span>
           </div>
-          {account.phone && (
-            <div className="flex items-center gap-3 text-sm">
-              <Phone className="size-4 text-gray-400 shrink-0" />
-              <span className="text-gray-700">{account.phone}</span>
-            </div>
-          )}
-          {account.school && (
+          {account.schoolName && (
             <div className="flex items-center gap-3 text-sm">
               <School className="size-4 text-gray-400 shrink-0" />
               <span className="text-gray-700">
-                {account.school.name}
-                {account.schoolClass && ` · ${account.schoolClass.name}`}
+                {account.schoolName}
+                {account.className && ` · ${account.className}`}
               </span>
             </div>
           )}

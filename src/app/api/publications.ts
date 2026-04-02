@@ -7,7 +7,7 @@ export interface PublicationDetailResponse {
   title: string;
   description: string;
   created_at: string;
-  author_nickname: string;
+  nickname: string;
   files: FileInfo[];
   subject_topic_id: number;
 }

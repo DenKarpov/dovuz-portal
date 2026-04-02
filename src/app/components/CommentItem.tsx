@@ -33,25 +33,33 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   const canEdit = user?.nickname === comment.nickname;
   const canDelete = isModerator || user?.nickname === comment.nickname;
 
+  // CommentItem.tsx
+
   const handleDelete = async () => {
-    if (!window.confirm('Удалить комментарий?')) return;
+    if (!window.confirm('Удалить этот комментарий?')) return;
+
     try {
+      // Используем прямой ID комментария без привязки к логике предметов
       await commentsApi.delete(comment.id);
-      toast.success('Комментарий удалён');
-      onDeleted?.(comment.id);
-    } catch {
-      toast.error('Ошибка при удалении');
+      toast.success('Комментарий удален');
+      if (onDeleted) onDeleted(comment.id);
+    } catch (err: any) {
+      // Вот здесь вылетает ваша ошибка из консоли
+      console.error('Ошибка удаления:', err);
+      toast.error(err.response?.data?.message || 'Ошибка при удалении');
     }
   };
 
   const handleUpdate = async () => {
+    if (!editContent.trim()) return;
     try {
-      const res = await commentsApi.update(comment.id, editContent);
-      toast.success('Комментарий обновлён');
-      onUpdated?.(res.data);
+      // Аналогично для обновления
+      await commentsApi.update(comment.id, editContent);
       setEditing(false);
-    } catch {
-      toast.error('Ошибка при обновлении');
+      toast.success('Комментарий обновлен');
+      if (onUpdated) onUpdated({ ...comment, content: editContent });
+    } catch (err: any) {
+      toast.error('Не удалось обновить комментарий');
     }
   };
 

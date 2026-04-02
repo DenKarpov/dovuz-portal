@@ -1,25 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  BookOpen,
-  Newspaper,
-  FolderOpen,
-  User,
-  Shield,
-  LogOut,
-  LogIn,
-  Menu,
-  X,
-  GraduationCap,
-  Layers,
+  BookOpen, Newspaper, FolderOpen, Shield, LogOut, LogIn, Menu, X, GraduationCap, Home,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../context/AuthContext';
+import { filesApi } from '../api/files';
+import { accountsApi } from '../api/accounts';
 
 export const Navbar: React.FC = () => {
   const { user, logout, isAdmin, isModerator } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [userPhoto, setUserPhoto] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      accountsApi.getAccount(user.nickname)
+        .then(res => {
+          if (res.data.photoNameInDirectory) {
+            setUserPhoto(filesApi.getPhotoUrl(res.data.photoNameInDirectory));
+          }
+        })
+        .catch(() => {});
+    } else {
+      setUserPhoto(null);
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -27,139 +42,197 @@ export const Navbar: React.FC = () => {
   };
 
   const links = [
-    { to: '/news', label: 'Новости', icon: <Newspaper className="size-4" /> },
-    { to: '/directions', label: 'Материалы', icon: <BookOpen className="size-4" /> },
-    ...(user ? [
-      { to: '/projects', label: 'Мои проекты', icon: <FolderOpen className="size-4" /> },
+    { to: '/', label: '🏠 Главная', icon: <Home className="size-4.5" /> },
+    { to: '/news', label: '📰 Новости', icon: <Newspaper className="size-4.5" /> },
+    { to: '/directions', label: '📚 Материалы', icon: <BookOpen className="size-4.5" /> },
+    ...(!isModerator && user ? [
+      { to: '/projects', label: '📁 Мои проекты', icon: <FolderOpen className="size-4.5" /> },
     ] : []),
-    ...(isModerator ? [
-      { to: '/moderator', label: 'Модератор', icon: <Layers className="size-4" /> },
+    ...(isModerator && !isAdmin ? [
+      { to: '/moderator/projects', label: '📋 Проекты школьников', icon: <FolderOpen className="size-4.5" /> },
     ] : []),
     ...(isAdmin ? [
-      { to: '/admin', label: 'Админ', icon: <Shield className="size-4" /> },
+      { to: '/admin/projects', label: '📋 Все проекты', icon: <FolderOpen className="size-4.5" /> },
+    ] : []),
+    ...(isAdmin ? [
+      { to: '/admin', label: '⚙️ Администратор', icon: <Shield className="size-4.5" /> },
     ] : []),
   ];
 
-  const isActive = (to: string) => location.pathname.startsWith(to);
+  const isActive = (to: string) => {
+    if (to === '/') return location.pathname === '/';
+    return location.pathname === to || location.pathname.startsWith(to + '/');
+  };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <GraduationCap className="size-7 text-indigo-600" />
-            <span className="hidden sm:block text-indigo-700" style={{ fontWeight: 700 }}>
-              МосПолитех
-            </span>
-          </Link>
-
-          {/* Desktop links */}
-          <div className="hidden md:flex items-center gap-1">
-            {links.map((l) => (
-              <Link
-                key={l.to}
-                to={l.to}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  isActive(l.to)
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-              >
-                {l.icon}
-                {l.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* User section */}
-          <div className="hidden md:flex items-center gap-2">
-            {user ? (
-              <>
-                <Link
-                  to={`/profile/${user.nickname}`}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"
-                >
-                  <User className="size-4" />
-                  <span>{user.nickname}</span>
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  <LogOut className="size-4" />
-                  Выйти
-                </button>
-              </>
-            ) : (
-              <Link
-                to="/login"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
-              >
-                <LogIn className="size-4" />
-                Войти
-              </Link>
-            )}
-          </div>
-
-          {/* Mobile menu button */}
-          <button
-            className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-            onClick={() => setMobileOpen(!mobileOpen)}
-          >
-            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 px-4 py-3 space-y-1">
-          {links.map((l) => (
-            <Link
-              key={l.to}
-              to={l.to}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
-                isActive(l.to) ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={() => setMobileOpen(false)}
-            >
-              {l.icon}
-              {l.label}
+    <>
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          scrolled
+            ? 'bg-white/95 backdrop-blur-md shadow-[0_2px_20px_rgba(0,0,0,0.08)] border-b border-slate-100'
+            : 'bg-white border-b border-slate-100'
+        }`}
+      >
+        <div className="h-0.5 w-full bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-600" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-[64px]">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="relative size-10 bg-gradient-to-br from-violet-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md shadow-indigo-200 group-hover:shadow-indigo-300 transition-shadow">
+                <GraduationCap className="size-5 text-white" />
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-base font-bold text-slate-800 leading-none">МосПолитех</p>
+                <p className="text-xs text-slate-400 leading-none mt-0.5">Довузовская подготовка</p>
+              </div>
             </Link>
-          ))}
-          <div className="border-t border-gray-100 pt-2 mt-2">
-            {user ? (
-              <>
+
+            {/* Desktop links */}
+            <div className="hidden md:flex items-center gap-1">
+              {links.map((l) => (
                 <Link
-                  to={`/profile/${user.nickname}`}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={() => setMobileOpen(false)}
+                  key={l.to}
+                  to={l.to}
+                  className={`relative flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    isActive(l.to)
+                      ? 'text-indigo-700 bg-indigo-50'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
                 >
-                  <User className="size-4" />
-                  {user.nickname}
+                  {l.label}
                 </Link>
-                <button
-                  onClick={() => { handleLogout(); setMobileOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50"
+              ))}
+            </div>
+
+            {/* User section */}
+            <div className="hidden md:flex items-center gap-3">
+              {user ? (
+                <>
+                  <Link
+                    to={`/profile/${user.nickname}`}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
+                  >
+                    {userPhoto ? (
+                      <img
+                        src={userPhoto}
+                        alt={user.nickname}
+                        className="size-8 rounded-lg object-cover border border-slate-200"
+                        onError={() => setUserPhoto(null)}
+                      />
+                    ) : (
+                      <div className="size-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">
+                        {user.nickname[0].toUpperCase()}
+                      </div>
+                    )}
+                    <span className="font-medium">{user.nickname}</span>
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-sm text-red-500 hover:bg-red-50 hover:text-red-600 transition-all"
+                  >
+                    <LogOut className="size-4" />
+                    Выйти
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-md shadow-indigo-200 hover:shadow-indigo-300 transition-all"
                 >
-                  <LogOut className="size-4" />
-                  Выйти
-                </button>
-              </>
-            ) : (
-              <Link
-                to="/login"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-indigo-600"
-                onClick={() => setMobileOpen(false)}
-              >
-                <LogIn className="size-4" />
-                Войти
-              </Link>
-            )}
+                  <LogIn className="size-4" />
+                  Войти
+                </Link>
+              )}
+            </div>
+
+            {/* Mobile menu button */}
+            <button
+              className="md:hidden p-2.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+              onClick={() => setMobileOpen(!mobileOpen)}
+            >
+              <AnimatePresence mode="wait">
+                {mobileOpen ? (
+                  <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}>
+                    <X className="size-6" />
+                  </motion.div>
+                ) : (
+                  <motion.div key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}>
+                    <Menu className="size-6" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </button>
           </div>
         </div>
-      )}
-    </nav>
+
+        {/* Mobile menu */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden bg-white border-t border-slate-100 px-4 py-3 space-y-1 shadow-lg"
+            >
+              {links.map((l, i) => (
+                <motion.div
+                  key={l.to}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                >
+                  <Link
+                    to={l.to}
+                    className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-medium ${
+                      isActive(l.to) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {l.label}
+                  </Link>
+                </motion.div>
+              ))}
+              <div className="border-t border-slate-100 pt-2 mt-2">
+                {user ? (
+                  <>
+                    <Link
+                      to={`/profile/${user.nickname}`}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium text-slate-700 hover:bg-slate-50"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      {userPhoto ? (
+                        <img src={userPhoto} alt={user.nickname} className="size-7 rounded-lg object-cover border border-slate-200" onError={() => setUserPhoto(null)} />
+                      ) : (
+                        <div className="size-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+                          {user.nickname[0].toUpperCase()}
+                        </div>
+                      )}
+                      {user.nickname}
+                    </Link>
+                    <button
+                      onClick={() => { handleLogout(); setMobileOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-medium text-red-500 hover:bg-red-50"
+                    >
+                      <LogOut className="size-4" />
+                      Выйти
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl text-base font-medium text-indigo-600"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <LogIn className="size-4" />
+                    Войти
+                  </Link>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </nav>
+    </>
   );
 };
