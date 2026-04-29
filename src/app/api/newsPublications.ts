@@ -18,9 +18,7 @@ export interface PublicationResponse {
 
 export const newsPublicationsApi = {
   create: (formData: FormData) =>
-    api.post<PublicationResponse>('/news_publications', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+    api.post<PublicationResponse>('/news_publications', formData),
 
   getAll: (pageNumber: number, pageSize: number) =>
     api.get<PageResponse<PublicationResponse>>('/news_publications', {

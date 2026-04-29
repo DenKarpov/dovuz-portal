@@ -16,7 +16,6 @@ export const importExportApi = {
         return api.post<{ message: string; importedCount: number; importedNames: string[] }>(
             '/admin/import-export/schools/import',
             fd,
-            { headers: { 'Content-Type': 'multipart/form-data' } }
         );
     },
 
@@ -27,7 +26,16 @@ export const importExportApi = {
         return api.post<{ message: string; importedCount: number; importedEmails: string[] }>(
             '/admin/import-export/students/import',
             fd,
-            { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+    },
+
+    /** Импортировать модераторов из Excel (.xlsx) */
+    importModerators: (file: File) => {
+        const fd = new FormData();
+        fd.append('file', file);
+        return api.post<{ message: string; importedCount: number; importedEmails: string[] }>(
+            '/admin/import-export/moderators/import',
+            fd,
         );
     },
 };

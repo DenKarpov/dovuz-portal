@@ -19,9 +19,7 @@ export interface PublicationTitleAndId {
 
 export const publicationsApi = {
   create: (formData: FormData) =>
-    api.post<PublicationDetailResponse>('/publications', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+    api.post<PublicationDetailResponse>('/publications', formData),
 
   getById: (id: number) =>
     api.get<PublicationDetailResponse>(`/publications/${id}`),

@@ -6,7 +6,7 @@ import { directionsApi, type DirectionResponse } from '../app/api/directions';
 import { toast } from 'sonner';
 
 const DIRECTION_STYLES = [
-  { gradient: 'from-violet-600 to-indigo-700', shadow: 'shadow-indigo-200', icon: <Calculator className="size-6 text-white" /> },
+  { gradient: 'from-blue-600 to-blue-800', shadow: 'shadow-blue-200', icon: <Calculator className="size-6 text-white" /> },
   { gradient: 'from-blue-600 to-cyan-700', shadow: 'shadow-cyan-200', icon: <Code2 className="size-6 text-white" /> },
   { gradient: 'from-emerald-600 to-teal-700', shadow: 'shadow-teal-200', icon: <FlaskConical className="size-6 text-white" /> },
   { gradient: 'from-orange-500 to-red-600', shadow: 'shadow-orange-200', icon: <Compass className="size-6 text-white" /> },
@@ -35,7 +35,7 @@ export const DirectionsPage: React.FC = () => {
         transition={{ duration: 0.45 }}
         className="flex items-center gap-3 mb-2"
       >
-        <div className="size-11 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+        <div className="size-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
           <BookOpen className="size-5 text-white" />
         </div>
         <div>
@@ -51,7 +51,7 @@ export const DirectionsPage: React.FC = () => {
         transition={{ delay: 0.1 }}
         className="flex items-center gap-2 text-sm mb-8 mt-4"
       >
-        <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg font-medium text-xs">Направления</span>
+        <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg font-medium text-xs">Направления</span>
       </motion.div>
 
       {/* Search */}
@@ -61,7 +61,7 @@ export const DirectionsPage: React.FC = () => {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="🔍 Поиск по направлениям..."
-          className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm"
+          className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
         />
       </div>
 

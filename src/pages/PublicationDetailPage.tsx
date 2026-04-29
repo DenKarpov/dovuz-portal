@@ -154,13 +154,13 @@ export const PublicationDetailPage: React.FC = () => {
       {/* Breadcrumb */}
       {directionId && (
         <div className="flex items-center gap-2 text-base text-slate-400 mb-6 flex-wrap">
-          <Link to="/directions" className="hover:text-indigo-600 transition-colors">📚 Направления</Link>
+          <Link to="/directions" className="hover:text-blue-600 transition-colors">📚 Направления</Link>
           <ChevronRight className="size-4" />
-          <Link to={`/directions/${directionId}/subjects`} className="hover:text-indigo-600 transition-colors">{directionName}</Link>
+          <Link to={`/directions/${directionId}/subjects`} className="hover:text-blue-600 transition-colors">{directionName}</Link>
           <ChevronRight className="size-4" />
-          {subjectId && <Link to={`/subjects/${subjectId}/topics`} className="hover:text-indigo-600 transition-colors">{subjectName}</Link>}
+          {subjectId && <Link to={`/subjects/${subjectId}/topics`} className="hover:text-blue-600 transition-colors">{subjectName}</Link>}
           <ChevronRight className="size-4" />
-          {topicId && <Link to={`/topics/${topicId}/publications`} className="hover:text-indigo-600 transition-colors">{topicName}</Link>}
+          {topicId && <Link to={`/topics/${topicId}/publications`} className="hover:text-blue-600 transition-colors">{topicName}</Link>}
           <ChevronRight className="size-4" />
           <span className="text-slate-700 font-medium truncate max-w-[200px]">{pub?.title}</span>
         </div>
@@ -186,7 +186,7 @@ export const PublicationDetailPage: React.FC = () => {
           </span>
           <span className="flex items-center gap-1.5">
             <User className="size-4" />
-            <Link to={`/profile/${pub.nickname}`} className="hover:text-indigo-600 transition-colors">
+            <Link to={`/profile/${pub.nickname}`} className="hover:text-blue-600 transition-colors">
               👤 {pub.nickname}
             </Link>
           </span>
@@ -206,13 +206,13 @@ export const PublicationDetailPage: React.FC = () => {
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="flex items-center gap-2 text-gray-900">
-            <MessageSquare className="size-5 text-indigo-600" />
+            <MessageSquare className="size-5 text-blue-600" />
             Комментарии
           </h3>
           {user && (
             <button
               onClick={() => setAddCommentOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 text-sm rounded-xl hover:bg-indigo-100 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 text-sm rounded-xl hover:bg-blue-100 transition-colors"
             >
               <Plus className="size-4" />
               Добавить
@@ -250,7 +250,7 @@ export const PublicationDetailPage: React.FC = () => {
             value={commentContent}
             onChange={(e) => setCommentContent(e.target.value)}
             placeholder="Введите комментарий..."
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <label className="flex items-center gap-2 text-sm text-gray-600">
             <input
@@ -265,7 +265,7 @@ export const PublicationDetailPage: React.FC = () => {
             <button
               onClick={handleAddComment}
               disabled={submitting}
-              className="flex-1 py-2.5 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+              className="flex-1 py-2.5 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
               {submitting ? 'Отправка...' : 'Отправить'}
             </button>

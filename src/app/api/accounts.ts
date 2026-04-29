@@ -20,7 +20,9 @@ export interface AccountResponse {
   isBanned: boolean;
   role: string;
   photoNameInDirectory?: string;
+  schoolId?: number;
   schoolName?: string;
+  classId?: number;
   className?: string;
 }
 
@@ -28,18 +30,43 @@ export interface GetAllUserResponse {
   id: number;
   nickname: string;
   email: string;
+  first_name?: string;
+  last_name?: string;
+  middle_name?: string;
+  photo_name_in_directory?: string;
+  school_id?: number;
+  school_name?: string;
+  class_id?: number;
+  class_name?: string;
   role: string;
-  isBanned: boolean;
+  is_banned: boolean;
+  is_lagging: boolean;
 }
 
 export interface StatusAccountResponse {
   id: number;
-  isBanned: boolean;
+  is_banned: boolean;
 }
 
 export interface AccountUpdateRoleResponse {
   id: number;
   role: string;
+}
+
+export interface HearingStageStatus {
+  stage: string;
+  status: string;
+}
+
+export interface CourseProgressResponse {
+  course_id: number;
+  course_name: string;
+  total_lessons: number;
+  submitted_lessons: number;
+  accepted_lessons: number;
+  average_score: number;
+  max_possible_score: number;
+  hearing_statuses: HearingStageStatus[];
 }
 
 export const accountsApi = {
@@ -58,9 +85,7 @@ export const accountsApi = {
     api.get<AccountResponse>(`/accounts/${nickname}`),
 
   saveInfo: (formData: FormData) =>
-    api.put<AccountResponse>('/accounts', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+    api.put<AccountResponse>('/accounts', formData),
 
   getBySchool: (schoolId: number, pageNumber: number, pageSize: number) =>
     api.get<PageResponse<GetAllUserResponse>>(`/accounts/school/${schoolId}`, {
@@ -74,4 +99,7 @@ export const accountsApi = {
 
   updateRole: (id: number, roleId: number) =>
     api.put<AccountUpdateRoleResponse>(`/accounts/${id}/role`, { role_id: roleId }),
+
+  getCourseProgress: (nickname: string) =>
+    api.get<CourseProgressResponse[]>(`/accounts/${nickname}/course-progress`),
 };

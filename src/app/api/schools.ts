@@ -3,6 +3,7 @@ import api from './axios';
 export interface SchoolResponse {
   id: number;
   name: string;
+  topic_deadline?: string;
 }
 
 export const schoolsApi = {

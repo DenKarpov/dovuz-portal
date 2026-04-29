@@ -116,7 +116,7 @@ export const TopicsPage: React.FC = () => {
             className="flex items-center justify-between mb-6"
         >
           <div className="flex items-center gap-3">
-            <div className="size-12 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+            <div className="size-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
               <Layers className="size-6 text-white" />
             </div>
             <div>
@@ -129,7 +129,7 @@ export const TopicsPage: React.FC = () => {
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={() => setCreateOpen(true)}
-                  className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-base font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200"
+                  className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white text-base font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-200"
               >
                 <Plus className="size-5" />
                 Добавить топик
@@ -144,12 +144,12 @@ export const TopicsPage: React.FC = () => {
             transition={{ delay: 0.1 }}
             className="flex items-center gap-2 text-base text-slate-400 mb-8 flex-wrap"
         >
-          <Link to="/directions" className="hover:text-indigo-600 transition-colors">
+          <Link to="/directions" className="hover:text-blue-600 transition-colors">
             📚 Направления
           </Link>
           <ChevronRight className="size-4" />
           {directionId ? (
-              <Link to={`/directions/${directionId}/subjects`} className="hover:text-indigo-600 transition-colors">
+              <Link to={`/directions/${directionId}/subjects`} className="hover:text-blue-600 transition-colors">
                 {directionName}
               </Link>
           ) : (
@@ -166,7 +166,7 @@ export const TopicsPage: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="🔍 Поиск по названию топика..."
-              className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm"
+              className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
           />
         </div>
 
@@ -191,7 +191,7 @@ export const TopicsPage: React.FC = () => {
                 {isModerator && topics.length === 0 && (
                     <button
                         onClick={() => setCreateOpen(true)}
-                        className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
+                        className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
                     >
                       + Создать первый топик
                     </button>
@@ -209,9 +209,9 @@ export const TopicsPage: React.FC = () => {
                     >
                       <Link
                           to={`/topics/${t.id}/publications`}
-                          className="group block bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all p-6"
+                          className="group block bg-white rounded-2xl border border-slate-100 hover:border-blue-200 transition-all p-6"
                       >
-                        <h3 className="text-slate-900 text-lg font-semibold group-hover:text-indigo-700 transition-colors mb-2">
+                        <h3 className="text-slate-900 text-lg font-semibold group-hover:text-blue-700 transition-colors mb-2">
                           {t.name}
                         </h3>
                         <p className="text-sm text-slate-400">
@@ -238,7 +238,7 @@ export const TopicsPage: React.FC = () => {
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
                   placeholder="Например: Введение в программирование"
                   autoFocus
                   onKeyPress={(e) => {
@@ -252,7 +252,7 @@ export const TopicsPage: React.FC = () => {
               <button
                   onClick={handleCreate}
                   disabled={creating || !form.name.trim()}
-                  className="flex-1 py-3 bg-indigo-600 text-white text-base rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex-1 py-3 bg-blue-600 text-white text-base rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {creating ? 'Создание...' : '🚀 Создать'}
               </button>

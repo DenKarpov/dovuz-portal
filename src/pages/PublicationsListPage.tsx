@@ -128,7 +128,7 @@ export const PublicationsListPage: React.FC = () => {
         className="flex items-center justify-between mb-6"
       >
         <div className="flex items-center gap-3">
-          <div className="size-12 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+          <div className="size-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
             <FileText className="size-6 text-white" />
           </div>
           <div>
@@ -141,7 +141,7 @@ export const PublicationsListPage: React.FC = () => {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-base font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200"
+            className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white text-base font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-200"
           >
             <Plus className="size-5" />
             Создать
@@ -156,14 +156,14 @@ export const PublicationsListPage: React.FC = () => {
         transition={{ delay: 0.1 }}
         className="flex items-center gap-2 text-base text-slate-400 mb-8 flex-wrap"
       >
-        <Link to="/directions" className="hover:text-indigo-600 transition-colors">📚 Направления</Link>
+        <Link to="/directions" className="hover:text-blue-600 transition-colors">📚 Направления</Link>
         <ChevronRight className="size-4" />
         {directionId ? (
-          <Link to={`/directions/${directionId}/subjects`} className="hover:text-indigo-600 transition-colors">{directionName}</Link>
+          <Link to={`/directions/${directionId}/subjects`} className="hover:text-blue-600 transition-colors">{directionName}</Link>
         ) : <span>...</span>}
         <ChevronRight className="size-4" />
         {subjectId ? (
-          <Link to={`/subjects/${subjectId}/topics`} className="hover:text-indigo-600 transition-colors">{subjectName}</Link>
+          <Link to={`/subjects/${subjectId}/topics`} className="hover:text-blue-600 transition-colors">{subjectName}</Link>
         ) : <span>...</span>}
         <ChevronRight className="size-4" />
         <span className="text-slate-700 font-medium">{topicName || '...'}</span>
@@ -176,7 +176,7 @@ export const PublicationsListPage: React.FC = () => {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="🔍 Поиск по названию публикации..."
-          className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm"
+          className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
         />
       </div>
 
@@ -202,18 +202,18 @@ export const PublicationsListPage: React.FC = () => {
               whileHover={{ x: 3 }}
               className="group"
             >
-              <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all px-6 py-5">
+              <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all px-6 py-5">
                 <Link
                   to={`/publications/${p.id}`}
                   className="flex items-center gap-4 flex-1 min-w-0"
                 >
-                  <div className="size-11 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-                    <FileText className="size-5 text-indigo-600" />
+                  <div className="size-11 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                    <FileText className="size-5 text-blue-600" />
                   </div>
-                  <span className="text-base text-slate-800 group-hover:text-indigo-700 transition-colors truncate font-medium">
+                  <span className="text-base text-slate-800 group-hover:text-blue-700 transition-colors truncate font-medium">
                     {p.title}
                   </span>
-                  <ArrowRight className="size-4 text-slate-300 group-hover:text-indigo-400 shrink-0 ml-auto transition-colors" />
+                  <ArrowRight className="size-4 text-slate-300 group-hover:text-blue-400 shrink-0 ml-auto transition-colors" />
                 </Link>
                 {isModerator && (
                   <button
@@ -239,7 +239,7 @@ export const PublicationsListPage: React.FC = () => {
               type="text"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
               placeholder="Введите заголовок"
             />
           </div>
@@ -249,7 +249,7 @@ export const PublicationsListPage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
               placeholder="Описание материала"
             />
           </div>
@@ -260,11 +260,11 @@ export const PublicationsListPage: React.FC = () => {
               multiple
               accept=".pdf,.ppt,.pptx,.doc,.docx,.jpg,.png"
               onChange={(e) => setFiles(e.target.files)}
-              className="w-full text-base text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-base file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="w-full text-base text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-base file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
           </div>
           <div className="flex gap-3">
-            <button onClick={handleCreate} disabled={creating} className="flex-1 py-3 bg-indigo-600 text-white text-base rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60">
+            <button onClick={handleCreate} disabled={creating} className="flex-1 py-3 bg-blue-600 text-white text-base rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60">
               {creating ? 'Создание...' : '🚀 Создать'}
             </button>
             <button onClick={() => setCreateOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 text-base rounded-xl hover:bg-slate-200 transition-colors">

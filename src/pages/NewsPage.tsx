@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Newspaper, Plus, Calendar, User, Download, ArrowRight, Search, Filter } from 'lucide-react';
+import { Newspaper, Plus, Calendar, User, Download, ArrowRight, Search, Filter, ChevronDown, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { newsPublicationsApi, type PublicationResponse } from '../app/api/newsPublications';
 import { Pagination } from '../app/components/Pagination';
@@ -20,6 +20,7 @@ export const NewsPage: React.FC = () => {
   const [authorFilter, setAuthorFilter] = useState('');
   const [onlyWithFiles, setOnlyWithFiles] = useState(false);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ title: '', description: '' });
   const [files, setFiles] = useState<FileList | null>(null);
@@ -104,7 +105,7 @@ export const NewsPage: React.FC = () => {
         className="flex items-center justify-between mb-10"
       >
         <div className="flex items-center gap-3">
-          <div className="size-12 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+          <div className="size-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
             <Newspaper className="size-6 text-white" />
           </div>
           <div>
@@ -117,7 +118,7 @@ export const NewsPage: React.FC = () => {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-base font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200"
+            className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white text-base font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-200"
           >
             <Plus className="size-5" />
             Создать
@@ -125,48 +126,88 @@ export const NewsPage: React.FC = () => {
         )}
       </motion.div>
 
-      {/* Search + filters */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-8">
-        <div className="relative xl:col-span-4">
+      {/* Search */}
+      <div className="mb-4">
+        <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="🔍 Поиск по заголовку или описанию..."
-            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm"
+            placeholder="Поиск по заголовку или описанию..."
+            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
           />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600">
+              <X className="size-4" />
+            </button>
+          )}
         </div>
-        <div className="relative xl:col-span-4">
-          <User className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
-          <input
-            value={authorFilter}
-            onChange={(e) => setAuthorFilter(e.target.value)}
-            placeholder="👤 Фильтр по автору..."
-            className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm"
-          />
-        </div>
-        <div className="flex items-center gap-3 xl:col-span-4">
-          <button
-            type="button"
-            onClick={() => setOnlyWithFiles(v => !v)}
-            className={`flex-1 min-w-[190px] inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl border text-base font-medium transition-colors ${
-              onlyWithFiles ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-            }`}
-            title="Показывать только новости с файлами"
-          >
-            <Filter className="size-5" />
-            {onlyWithFiles ? 'С файлами: да' : 'С файлами: нет'}
-          </button>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-4 py-3.5 rounded-2xl border border-slate-200 bg-white text-base min-w-[160px]"
-            title="Сортировка"
-          >
-            <option value="newest">Сначала новые</option>
-            <option value="oldest">Сначала старые</option>
-          </select>
-        </div>
+      </div>
+
+      {/* Collapsible filters */}
+      <div className="mb-8">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(v => !v)}
+          className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors mb-2"
+        >
+          <Filter className="size-4" />
+          Фильтры
+          <ChevronDown className={`size-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+          {(authorFilter || onlyWithFiles || sortBy !== 'newest') && (
+            <span className="size-2 bg-blue-500 rounded-full" />
+          )}
+        </button>
+        <AnimatePresence>
+          {filtersOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <div className="relative flex-1 min-w-[200px]">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                  <input
+                    value={authorFilter}
+                    onChange={(e) => setAuthorFilter(e.target.value)}
+                    placeholder="Фильтр по автору..."
+                    className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOnlyWithFiles(v => !v)}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                    onlyWithFiles ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <Filter className="size-4" />
+                  {onlyWithFiles ? 'С файлами' : 'Все'}
+                </button>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm"
+                >
+                  <option value="newest">Сначала новые</option>
+                  <option value="oldest">Сначала старые</option>
+                </select>
+                {(authorFilter || onlyWithFiles || sortBy !== 'newest') && (
+                  <button
+                    type="button"
+                    onClick={() => { setAuthorFilter(''); setOnlyWithFiles(false); setSortBy('newest'); }}
+                    className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                  >
+                    Сбросить
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* List */}
@@ -203,7 +244,7 @@ export const NewsPage: React.FC = () => {
             >
               <Link
                 to={`/news/${item.id}`}
-                className="group block bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 hover:shadow-lg transition-all duration-300"
+                className="group block bg-white rounded-2xl border border-slate-100 hover:border-blue-200 hover:shadow-lg transition-all duration-300"
               >
                 {/* Images row at top */}
                 {item.files && item.files.length > 0 && (() => {
@@ -237,7 +278,7 @@ export const NewsPage: React.FC = () => {
                 })()}
 
                 <div className="p-7">
-                  <h3 className="text-slate-900 text-lg font-bold group-hover:text-indigo-700 transition-colors mb-2.5 leading-snug">
+                  <h3 className="text-slate-900 text-lg font-bold group-hover:text-blue-700 transition-colors mb-2.5 leading-snug">
                     {item.title}
                   </h3>
 
@@ -255,7 +296,7 @@ export const NewsPage: React.FC = () => {
                             key={f.id}
                             type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDownload(f); }}
-                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
+                            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-200 transition-colors"
                           >
                             <Download className="size-4 text-slate-400" />
                             <span className="text-sm text-slate-700 truncate max-w-[10rem]">{f.initial_file_name}</span>
@@ -279,7 +320,7 @@ export const NewsPage: React.FC = () => {
                         <span className="text-slate-700 font-medium">{item.nickname}</span>
                       </span>
                     </div>
-                    <span className="flex items-center gap-1.5 text-sm text-indigo-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="flex items-center gap-1.5 text-sm text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
                       Читать <ArrowRight className="size-4" />
                     </span>
                   </div>
@@ -302,7 +343,7 @@ export const NewsPage: React.FC = () => {
               type="text"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
               placeholder="Введите заголовок"
             />
           </div>
@@ -312,7 +353,7 @@ export const NewsPage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={4}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none bg-slate-50 focus:bg-white transition-all"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-slate-50 focus:bg-white transition-all"
               placeholder="Введите описание"
             />
           </div>
@@ -323,14 +364,14 @@ export const NewsPage: React.FC = () => {
               multiple
               accept=".pdf,.ppt,.pptx,.doc,.docx,.jpg,.png"
               onChange={(e) => setFiles(e.target.files)}
-              className="w-full text-base text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-base file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="w-full text-base text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-base file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
           </div>
           <div className="flex gap-3 pt-2">
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="flex-1 py-3 bg-indigo-600 text-white text-base font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+              className="flex-1 py-3 bg-blue-600 text-white text-base font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
               {creating ? 'Создание...' : 'Создать'}
             </button>

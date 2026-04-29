@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  BookOpen, Newspaper, FolderOpen, Shield, LogOut, LogIn, Menu, X, GraduationCap, Home,
+  BookOpen, Newspaper, Shield, LogOut, LogIn, Menu, X, GraduationCap, Home, BookOpenCheck,
+  Lightbulb, Award,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../context/AuthContext';
@@ -46,13 +47,17 @@ export const Navbar: React.FC = () => {
     { to: '/news', label: '📰 Новости', icon: <Newspaper className="size-4.5" /> },
     { to: '/directions', label: '📚 Материалы', icon: <BookOpen className="size-4.5" /> },
     ...(!isModerator && user ? [
-      { to: '/projects', label: '📁 Мои проекты', icon: <FolderOpen className="size-4.5" /> },
+      { to: '/courses', label: '📖 Курсы', icon: <BookOpenCheck className="size-4.5" /> },
     ] : []),
     ...(isModerator && !isAdmin ? [
-      { to: '/moderator/projects', label: '📋 Проекты школьников', icon: <FolderOpen className="size-4.5" /> },
+      { to: '/courses', label: '📖 Курсы', icon: <BookOpenCheck className="size-4.5" /> },
+      { to: '/moderator/idea-bank', label: '💡 Банк идей', icon: <Lightbulb className="size-4.5" /> },
+      { to: '/moderator/students', label: '📊 Рейтинг', icon: <Award className="size-4.5" /> },
     ] : []),
     ...(isAdmin ? [
-      { to: '/admin/projects', label: '📋 Все проекты', icon: <FolderOpen className="size-4.5" /> },
+      { to: '/courses', label: '📖 Курсы', icon: <BookOpenCheck className="size-4.5" /> },
+      { to: '/moderator/idea-bank', label: '💡 Банк идей', icon: <Lightbulb className="size-4.5" /> },
+      { to: '/moderator/students', label: '📊 Рейтинг', icon: <Award className="size-4.5" /> },
     ] : []),
     ...(isAdmin ? [
       { to: '/admin', label: '⚙️ Администратор', icon: <Shield className="size-4.5" /> },
@@ -69,21 +74,21 @@ export const Navbar: React.FC = () => {
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           scrolled
-            ? 'bg-white/95 backdrop-blur-md shadow-[0_2px_20px_rgba(0,0,0,0.08)] border-b border-slate-100'
-            : 'bg-white border-b border-slate-100'
+            ? 'bg-white/95 dark:bg-card/95 backdrop-blur-md shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:shadow-black/40 border-b border-slate-100 dark:border-border'
+            : 'bg-white dark:bg-background border-b border-slate-100 dark:border-border'
         }`}
       >
-        <div className="h-0.5 w-full bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-600" />
+        <div className="h-0.5 w-full bg-gradient-to-r from-blue-600 via-red-500 to-blue-600" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-[64px]">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="relative size-10 bg-gradient-to-br from-violet-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md shadow-indigo-200 group-hover:shadow-indigo-300 transition-shadow">
+              <div className="relative size-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-md shadow-blue-200 group-hover:shadow-blue-300 transition-shadow">
                 <GraduationCap className="size-5 text-white" />
               </div>
               <div className="hidden sm:block">
-                <p className="text-base font-bold text-slate-800 leading-none">МосПолитех</p>
-                <p className="text-xs text-slate-400 leading-none mt-0.5">Довузовская подготовка</p>
+                <p className="text-base font-bold text-slate-800 dark:text-foreground leading-none">МосПолитех</p>
+                <p className="text-xs text-slate-400 dark:text-muted-foreground leading-none mt-0.5">Довузовская подготовка</p>
               </div>
             </Link>
 
@@ -95,8 +100,8 @@ export const Navbar: React.FC = () => {
                   to={l.to}
                   className={`relative flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                     isActive(l.to)
-                      ? 'text-indigo-700 bg-indigo-50'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      ? 'text-blue-700 dark:text-primary bg-blue-50 dark:bg-primary/15'
+                      : 'text-slate-600 dark:text-muted-foreground hover:text-slate-900 dark:hover:text-foreground hover:bg-slate-50 dark:hover:bg-muted/50'
                   }`}
                 >
                   {l.label}
@@ -110,7 +115,7 @@ export const Navbar: React.FC = () => {
                 <>
                   <Link
                     to={`/profile/${user.nickname}`}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-600 dark:text-muted-foreground hover:text-slate-900 dark:hover:text-foreground hover:bg-slate-50 dark:hover:bg-muted/50 transition-all"
                   >
                     {userPhoto ? (
                       <img
@@ -120,7 +125,7 @@ export const Navbar: React.FC = () => {
                         onError={() => setUserPhoto(null)}
                       />
                     ) : (
-                      <div className="size-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">
+                      <div className="size-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-bold">
                         {user.nickname[0].toUpperCase()}
                       </div>
                     )}
@@ -137,7 +142,7 @@ export const Navbar: React.FC = () => {
               ) : (
                 <Link
                   to="/login"
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-md shadow-indigo-200 hover:shadow-indigo-300 transition-all"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all"
                 >
                   <LogIn className="size-4" />
                   Войти
@@ -173,7 +178,7 @@ export const Navbar: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden bg-white border-t border-slate-100 px-4 py-3 space-y-1 shadow-lg"
+              className="md:hidden bg-card border-t border-border px-4 py-3 space-y-1 shadow-lg"
             >
               {links.map((l, i) => (
                 <motion.div
@@ -185,7 +190,7 @@ export const Navbar: React.FC = () => {
                   <Link
                     to={l.to}
                     className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-base font-medium ${
-                      isActive(l.to) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                      isActive(l.to) ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'
                     }`}
                     onClick={() => setMobileOpen(false)}
                   >
@@ -193,7 +198,7 @@ export const Navbar: React.FC = () => {
                   </Link>
                 </motion.div>
               ))}
-              <div className="border-t border-slate-100 pt-2 mt-2">
+              <div className="border-t border-slate-100 pt-2 mt-2 dark:border-border">
                 {user ? (
                   <>
                     <Link
@@ -204,7 +209,7 @@ export const Navbar: React.FC = () => {
                       {userPhoto ? (
                         <img src={userPhoto} alt={user.nickname} className="size-7 rounded-lg object-cover border border-slate-200" onError={() => setUserPhoto(null)} />
                       ) : (
-                        <div className="size-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+                        <div className="size-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold">
                           {user.nickname[0].toUpperCase()}
                         </div>
                       )}
@@ -221,7 +226,7 @@ export const Navbar: React.FC = () => {
                 ) : (
                   <Link
                     to="/login"
-                    className="flex items-center gap-2 px-4 py-3 rounded-xl text-base font-medium text-indigo-600"
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl text-base font-medium text-blue-600"
                     onClick={() => setMobileOpen(false)}
                   >
                     <LogIn className="size-4" />

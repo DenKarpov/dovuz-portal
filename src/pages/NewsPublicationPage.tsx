@@ -195,13 +195,13 @@ export const NewsPublicationPage: React.FC = () => {
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="flex items-center gap-2 text-gray-900">
-              <MessageSquare className="size-5 text-indigo-600" />
+              <MessageSquare className="size-5 text-blue-600" />
               Комментарии
             </h3>
             {user && (
                 <button
                     onClick={() => setAddCommentOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 text-sm rounded-xl hover:bg-indigo-100 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 text-sm rounded-xl hover:bg-blue-100 transition-colors"
                 >
                   <Plus className="size-4" />
                   Добавить
@@ -244,7 +244,7 @@ export const NewsPublicationPage: React.FC = () => {
               value={commentContent}
               onChange={(e) => setCommentContent(e.target.value)}
               placeholder="Введите комментарий..."
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
             <label className="flex items-center gap-2 text-sm text-gray-600">
               <input
@@ -259,7 +259,7 @@ export const NewsPublicationPage: React.FC = () => {
               <button
                   onClick={handleAddComment}
                   disabled={submitting}
-                  className="flex-1 py-2.5 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                  className="flex-1 py-2.5 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60"
               >
                 {submitting ? 'Отправка...' : 'Отправить'}
               </button>

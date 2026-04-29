@@ -72,7 +72,7 @@ export const RegisterPage: React.FC = () => {
           className="absolute bottom-0 right-0 w-[350px] h-[350px] rounded-full"
           style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.3) 0%, transparent 70%)' }}
         />
-        <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-indigo-600 via-indigo-600/50 to-transparent" />
+        <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-600 via-blue-600/50 to-transparent" />
 
         <div className="relative z-10 flex flex-col justify-center p-16 max-w-xl">
           <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.7, delay: 0.2 }}>
@@ -80,7 +80,7 @@ export const RegisterPage: React.FC = () => {
               <div className="text-white mb-5" style={{ fontSize: 'clamp(2rem, 3.5vw, 3rem)', fontWeight: 800, lineHeight: 1.15 }}>
                 🎓 Начните свой путь
                 <br />
-                <span className="text-indigo-400">в Московском Политехе</span>
+                <span className="text-blue-400">в Московском Политехе</span>
               </div>
               <p className="text-slate-400 leading-relaxed text-lg">
                 Присоединяйтесь к сообществу будущих инженеров и учёных
@@ -97,8 +97,8 @@ export const RegisterPage: React.FC = () => {
                   whileHover={{ x: 4 }}
                   className="flex items-start gap-5 p-5 rounded-2xl bg-white/5 border border-white/8 cursor-default"
                 >
-                  <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-600/20 shrink-0">
-                    <f.icon className="size-6 text-indigo-400" />
+                  <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600/20 shrink-0">
+                    <f.icon className="size-6 text-blue-400" />
                   </div>
                   <div>
                     <div className="text-white font-semibold text-base mb-1">{f.title}</div>
@@ -130,11 +130,11 @@ export const RegisterPage: React.FC = () => {
         <div className="w-full max-w-[420px]">
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <Link to="/" className="inline-flex items-center gap-2.5 mb-10 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md shadow-indigo-200">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-md shadow-blue-200">
                 <GraduationCap className="size-5 text-white" />
               </div>
               <div>
-                <p className="font-bold text-slate-900 text-base leading-none group-hover:text-indigo-700 transition-colors">МосПолитех</p>
+                <p className="font-bold text-slate-900 text-base leading-none group-hover:text-blue-700 transition-colors">МосПолитех</p>
                 <p className="text-slate-400 text-xs leading-none mt-0.5">Довузовская подготовка</p>
               </div>
             </Link>
@@ -164,7 +164,7 @@ export const RegisterPage: React.FC = () => {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   required
-                  className="w-full h-12 pl-11 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent focus:bg-white transition-all"
+                  className="w-full h-12 pl-11 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white transition-all"
                 />
               </div>
             </div>
@@ -179,7 +179,7 @@ export const RegisterPage: React.FC = () => {
                   onChange={e => setNickname(e.target.value)}
                   placeholder="username"
                   required
-                  className="w-full h-12 pl-11 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent focus:bg-white transition-all"
+                  className="w-full h-12 pl-11 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white transition-all"
                 />
               </div>
             </div>
@@ -195,7 +195,7 @@ export const RegisterPage: React.FC = () => {
                   placeholder="Минимум 8 символов"
                   required
                   minLength={8}
-                  className="w-full h-12 pl-11 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent focus:bg-white transition-all"
+                  className="w-full h-12 pl-11 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white transition-all"
                 />
                 <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                   {showPwd ? <EyeOff className="size-4.5" /> : <Eye className="size-4.5" />}
@@ -208,7 +208,7 @@ export const RegisterPage: React.FC = () => {
               disabled={loading}
               whileHover={{ scale: loading ? 1 : 1.02, boxShadow: loading ? 'none' : '0 8px 25px rgba(79,70,229,0.35)' }}
               whileTap={{ scale: loading ? 1 : 0.98 }}
-              className="w-full h-12 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-not-allowed text-base"
+              className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-not-allowed text-base"
             >
               {loading ? (
                 <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />
@@ -219,7 +219,7 @@ export const RegisterPage: React.FC = () => {
 
             <p className="text-center text-slate-500 pt-2">
               Уже есть аккаунт?{' '}
-              <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-semibold transition-colors">Войти</Link>
+              <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">Войти</Link>
             </p>
           </motion.form>
         </div>

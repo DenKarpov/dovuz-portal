@@ -42,7 +42,7 @@ export const FileList: React.FC<FileListProps> = ({ files }) => {
             <button
               key={file.id}
               onClick={() => handleDownload(file)}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-indigo-50 hover:border-indigo-200 transition-colors group text-left"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 transition-colors group text-left"
             >
               <div className={`flex items-center justify-center size-9 rounded-lg text-xs ${colorClass}`} style={{ fontWeight: 700 }}>
                 {ext}
@@ -50,7 +50,7 @@ export const FileList: React.FC<FileListProps> = ({ files }) => {
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-800 truncate">{file.initial_file_name}</p>
               </div>
-              <Download className="size-4 text-gray-400 group-hover:text-indigo-600 shrink-0 transition-colors" />
+              <Download className="size-4 text-gray-400 group-hover:text-blue-600 shrink-0 transition-colors" />
             </button>
           );
         })}

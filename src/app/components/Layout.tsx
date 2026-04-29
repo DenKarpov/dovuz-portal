@@ -6,7 +6,7 @@ import { Toaster } from 'sonner';
 
 export const Layout: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       <main className="pt-16 flex-1">
         <Outlet />

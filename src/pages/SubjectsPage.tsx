@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 const SUBJECT_EMOJIS = ['📐', '📊', '🔬', '💻', '🎨', '🌍', '📝', '🧮', '⚡', '🔧', '📕', '🎯'];
 const CARD_STYLES = [
-  { gradient: 'from-violet-600 to-indigo-700' },
+  { gradient: 'from-blue-600 to-blue-800' },
   { gradient: 'from-blue-600 to-cyan-700' },
   { gradient: 'from-emerald-600 to-teal-700' },
   { gradient: 'from-orange-500 to-red-600' },
@@ -96,7 +96,7 @@ export const SubjectsPage: React.FC = () => {
         className="flex items-center justify-between mb-6"
       >
         <div className="flex items-center gap-3">
-          <div className="size-12 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+          <div className="size-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
             <BookOpen className="size-6 text-white" />
           </div>
           <div>
@@ -109,7 +109,7 @@ export const SubjectsPage: React.FC = () => {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-base font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200"
+            className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white text-base font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-200"
           >
             <Plus className="size-5" />
             Добавить предмет
@@ -119,7 +119,7 @@ export const SubjectsPage: React.FC = () => {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-base text-slate-400 mb-8">
-        <Link to="/directions" className="hover:text-indigo-600 transition-colors">📚 Направления</Link>
+        <Link to="/directions" className="hover:text-blue-600 transition-colors">📚 Направления</Link>
         <ChevronRight className="size-4" />
         <span className="text-slate-700 font-medium">{direction?.name ?? '...'}</span>
       </div>
@@ -131,7 +131,7 @@ export const SubjectsPage: React.FC = () => {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="🔍 Поиск по названию предмета..."
-          className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm"
+          className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
         />
       </div>
 
@@ -208,12 +208,12 @@ export const SubjectsPage: React.FC = () => {
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
               placeholder="Например: Математика"
             />
           </div>
           <div className="flex gap-3">
-            <button onClick={handleCreate} disabled={creating} className="flex-1 py-3 bg-indigo-600 text-white text-base rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60">
+            <button onClick={handleCreate} disabled={creating} className="flex-1 py-3 bg-blue-600 text-white text-base rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60">
               {creating ? 'Создание...' : '🚀 Создать'}
             </button>
             <button onClick={() => setCreateOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 text-base rounded-xl hover:bg-slate-200 transition-colors">

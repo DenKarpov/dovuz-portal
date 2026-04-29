@@ -105,11 +105,11 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     });
 
   return (
-    <div className={`${depth > 0 ? 'ml-6 border-l-2 border-indigo-100 pl-4' : ''}`}>
+    <div className={`${depth > 0 ? 'ml-6 border-l-2 border-blue-100 pl-4' : ''}`}>
       <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3 hover:border-gray-200 transition-colors">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm shrink-0">
+            <div className="size-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm shrink-0">
               {comment.anonymous ? '?' : (comment.nickname?.[0] ?? 'U').toUpperCase()}
             </div>
             <div>
@@ -123,7 +123,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             {canEdit && (
               <button
                 onClick={() => setEditing(!editing)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
               >
                 <Edit2 className="size-3.5" />
               </button>
@@ -150,7 +150,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             <div className="flex gap-2 mt-2">
               <button
                 onClick={handleUpdate}
-                className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
+                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Сохранить
               </button>
@@ -172,7 +172,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             {user && (
               <button
                 onClick={() => setShowReplyForm(!showReplyForm)}
-                className="flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600 transition-colors"
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 transition-colors"
               >
                 <MessageSquare className="size-3.5" />
                 Ответить
@@ -180,7 +180,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             )}
             <button
               onClick={toggleReplies}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600 transition-colors"
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 transition-colors"
             >
               {showReplies ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
               Ответы
@@ -209,7 +209,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               </label>
               <button
                 onClick={handleReply}
-                className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 transition-colors"
+                className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Отправить
               </button>

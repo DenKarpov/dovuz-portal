@@ -1,30 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Calendar, User, ChevronLeft, ChevronRight, BookOpen, Users,
   Trophy, ArrowRight, GraduationCap, Layers, Loader2,
 } from 'lucide-react';
-import { motion, useInView, useMotionValue, useSpring } from 'motion/react';
+import { motion } from 'motion/react';
 import { newsPublicationsApi, type PublicationResponse } from '../app/api/newsPublications';
 import { useAuth } from '../context/AuthContext';
-
-function Counter({ target, suffix = '' }: { target: number; suffix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
-  const motionValue = useMotionValue(0);
-  const spring = useSpring(motionValue, { stiffness: 80, damping: 20 });
-  const [display, setDisplay] = useState(0);
-
-  useEffect(() => {
-    if (inView) motionValue.set(target);
-  }, [inView, target, motionValue]);
-
-  useEffect(() => {
-    return spring.on('change', (v) => setDisplay(Math.round(v)));
-  }, [spring]);
-
-  return <span ref={ref}>{display}{suffix}</span>;
-}
 
 const NoisePattern = () => (
   <svg className="absolute inset-0 w-full h-full opacity-[0.03]" xmlns="http://www.w3.org/2000/svg">
@@ -55,17 +37,10 @@ export const HomePage: React.FC = () => {
       .finally(() => setNewsLoading(false));
   }, [page]);
 
-  const stats = [
-    { value: 1000, suffix: '+', label: 'Студентов' },
-    { value: 50, suffix: '+', label: 'Направлений' },
-    { value: 15, suffix: '', label: 'Лет опыта' },
-    { value: 95, suffix: '%', label: 'Поступают в вуз' },
-  ];
-
   const features = [
-    { icon: BookOpen, color: '#6d28d9', bg: '#ede9fe', title: 'Богатая библиотека', desc: 'Методические материалы, лекции и практические задания по всем направлениям подготовки' },
-    { icon: Users, color: '#4338ca', bg: '#eef2ff', title: 'Живое сообщество', desc: 'Общайтесь с преподавателями и единомышленниками, задавайте вопросы и делитесь опытом' },
-    { icon: Trophy, color: '#6d28d9', bg: '#ede9fe', title: 'Результат', desc: 'Отслеживайте прогресс, проходите контрольные слушания и развивайте навыки системно' },
+    { icon: BookOpen, color: '#2563eb', bg: '#dbeafe', title: 'Богатая библиотека', desc: 'Методические материалы, лекции и практические задания по всем направлениям подготовки' },
+    { icon: Users, color: '#1d4ed8', bg: '#dbeafe', title: 'Живое сообщество', desc: 'Общайтесь с преподавателями и единомышленниками, задавайте вопросы и делитесь опытом' },
+    { icon: Trophy, color: '#2563eb', bg: '#dbeafe', title: 'Результат', desc: 'Отслеживайте прогресс, проходите контрольные слушания и развивайте навыки системно' },
   ];
 
   const formatDate = (d: string) =>
@@ -89,13 +64,13 @@ export const HomePage: React.FC = () => {
           animate={{ scale: [1, 1.15, 1], opacity: [0.15, 0.25, 0.15] }}
           transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
           className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(109,40,217,0.4) 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.4) 0%, transparent 70%)' }}
         />
         <motion.div
           animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
           transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
           className="absolute -bottom-40 -right-40 w-[700px] h-[700px] rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(67,56,202,0.4) 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(29,78,216,0.4) 0%, transparent 70%)' }}
         />
 
         {[...Array(6)].map((_, i) => (
@@ -105,7 +80,7 @@ export const HomePage: React.FC = () => {
             style={{
               width: `${[6, 10, 4, 8, 5, 12][i]}px`,
               height: `${[6, 10, 4, 8, 5, 12][i]}px`,
-              background: i % 2 === 0 ? '#7c3aed' : '#4338ca',
+              background: i % 2 === 0 ? '#3b82f6' : '#2563eb',
               left: `${[15, 75, 35, 85, 55, 20][i]}%`,
               top: `${[25, 15, 65, 45, 80, 55][i]}%`,
               opacity: 0.6,
@@ -128,7 +103,7 @@ export const HomePage: React.FC = () => {
               className="mb-8"
             >
               <span className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-gray-300 text-base px-5 py-2.5 rounded-full backdrop-blur-sm">
-                <span className="w-2.5 h-2.5 bg-violet-500 rounded-full animate-pulse" />
+                <span className="w-2.5 h-2.5 bg-blue-50 rounded-full animate-pulse" />
                 Московский Политехнический Университет
               </span>
             </motion.div>
@@ -143,7 +118,7 @@ export const HomePage: React.FC = () => {
               Довузовская{' '}
               <span
                 style={{
-                  background: 'linear-gradient(90deg, #7c3aed 0%, #a78bfa 50%, #7c3aed 100%)',
+                  background: 'linear-gradient(90deg, #3b82f6 0%, #93c5fd 50%, #3b82f6 100%)',
                   backgroundSize: '200% 100%',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -176,9 +151,9 @@ export const HomePage: React.FC = () => {
               >
                 <Link to="/register">
                   <motion.button
-                    whileHover={{ scale: 1.03, boxShadow: '0 0 30px rgba(124,58,237,0.5)' }}
+                    whileHover={{ scale: 1.03, boxShadow: '0 0 30px rgba(59,130,246,0.5)' }}
                     whileTap={{ scale: 0.97 }}
-                    className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-9 py-4.5 rounded-xl text-base font-semibold transition-colors"
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-9 py-4.5 rounded-xl text-base font-semibold transition-colors shadow-lg shadow-blue-500/25"
                   >
                     Начать обучение
                     <ArrowRight className="size-5" />
@@ -196,22 +171,6 @@ export const HomePage: React.FC = () => {
                 </Link>
               </motion.div>
             )}
-
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.5 }}
-              className="grid grid-cols-2 sm:grid-cols-4 gap-6 mt-20 pt-12 border-t border-white/10"
-            >
-              {stats.map((stat, i) => (
-                <motion.div key={i} whileHover={{ y: -4 }} className="text-center">
-                  <div className="text-white mb-1" style={{ fontSize: 'clamp(2rem, 4vw, 2.75rem)', fontWeight: 800, lineHeight: 1 }}>
-                    <Counter target={stat.value} suffix={stat.suffix} />
-                  </div>
-                  <div className="text-gray-500 text-base">{stat.label}</div>
-                </motion.div>
-              ))}
-            </motion.div>
           </div>
         </div>
 
@@ -236,7 +195,7 @@ export const HomePage: React.FC = () => {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <span className="text-violet-600 text-sm font-semibold tracking-widest uppercase mb-3 block">
+            <span className="text-blue-600 text-sm font-semibold tracking-widest uppercase mb-3 block">
               Платформа
             </span>
             <h2 className="text-gray-900 mb-5" style={{ fontSize: 'clamp(1.85rem, 4vw, 2.85rem)', fontWeight: 800, lineHeight: 1.2 }}>
@@ -277,7 +236,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* ─── DIVIDER ─── */}
-      <div className="h-1 bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-600" />
+      <div className="h-1 bg-gradient-to-r from-blue-600 via-blue-600 to-blue-600" />
 
       {/* ─── NEWS ─── */}
       <section className="py-28 bg-[#F5F6F8]">
@@ -290,7 +249,7 @@ export const HomePage: React.FC = () => {
               className="flex items-end justify-between mb-12 gap-4"
             >
               <div>
-                <span className="text-violet-600 text-sm font-semibold tracking-widest uppercase mb-2 block">
+                <span className="text-blue-600 text-sm font-semibold tracking-widest uppercase mb-2 block">
                   Новости
                 </span>
                 <h2 className="text-gray-900" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.35rem)', fontWeight: 800, lineHeight: 1.2 }}>
@@ -299,7 +258,7 @@ export const HomePage: React.FC = () => {
               </div>
               <Link
                 to="/news"
-                className="hidden md:flex items-center gap-1.5 text-violet-600 hover:text-violet-700 font-semibold text-base shrink-0 group"
+                className="hidden md:flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold text-base shrink-0 group"
               >
                 Все новости
                 <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
@@ -309,7 +268,7 @@ export const HomePage: React.FC = () => {
             {newsLoading ? (
               <div className="flex items-center justify-center py-24">
                 <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
-                  <Loader2 className="size-8 text-violet-600" />
+                  <Loader2 className="size-8 text-blue-600" />
                 </motion.div>
               </div>
             ) : news.length === 0 ? (
@@ -331,14 +290,14 @@ export const HomePage: React.FC = () => {
                     >
                       <Link
                         to={`/news/${item.id}`}
-                        className="group block bg-white rounded-2xl p-7 border border-gray-100 hover:border-violet-200 hover:shadow-lg transition-all duration-300"
+                        className="group block bg-white rounded-2xl p-7 border border-gray-100 hover:border-blue-200 hover:shadow-lg transition-all duration-300"
                       >
                         <div className="flex items-start gap-5">
-                          <div className="hidden sm:flex items-center justify-center w-14 h-14 rounded-xl bg-violet-50 shrink-0">
-                            <GraduationCap className="size-7 text-violet-600" />
+                          <div className="hidden sm:flex items-center justify-center w-14 h-14 rounded-xl bg-blue-50 shrink-0">
+                            <GraduationCap className="size-7 text-blue-600" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-gray-900 mb-2 group-hover:text-violet-600 transition-colors" style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>
+                            <h3 className="text-gray-900 mb-2 group-hover:text-blue-600 transition-colors" style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>
                               {item.title}
                             </h3>
                             {item.description && (
@@ -353,7 +312,7 @@ export const HomePage: React.FC = () => {
                                 <Calendar className="size-4" />
                                 <span>{formatDate(item.created_at)}</span>
                               </div>
-                              <span className="ml-auto flex items-center gap-1.5 text-violet-600 text-sm font-semibold group-hover:translate-x-0.5 transition-transform">
+                              <span className="ml-auto flex items-center gap-1.5 text-blue-600 text-sm font-semibold group-hover:translate-x-0.5 transition-transform">
                                 Читать <ArrowRight className="size-4" />
                               </span>
                             </div>
@@ -369,7 +328,7 @@ export const HomePage: React.FC = () => {
                     <button
                       onClick={() => setPage(p => Math.max(0, p - 1))}
                       disabled={page === 0}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl border border-gray-200 text-base font-medium text-gray-700 hover:border-violet-400 hover:text-violet-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl border border-gray-200 text-base font-medium text-gray-700 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                       <ChevronLeft className="size-4" /> Назад
                     </button>
@@ -380,7 +339,7 @@ export const HomePage: React.FC = () => {
                     <button
                       onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                       disabled={page >= totalPages - 1}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl border border-gray-200 text-base font-medium text-gray-700 hover:border-violet-400 hover:text-violet-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl border border-gray-200 text-base font-medium text-gray-700 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                       Вперёд <ChevronRight className="size-4" />
                     </button>
@@ -400,7 +359,7 @@ export const HomePage: React.FC = () => {
             animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.3, 0.15] }}
             transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
-            style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.3) 0%, transparent 70%)' }}
+            style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.3) 0%, transparent 70%)' }}
           />
 
           <div className="container mx-auto px-6 relative z-10">
@@ -412,7 +371,7 @@ export const HomePage: React.FC = () => {
             >
               <h2 className="text-white mb-6" style={{ fontSize: 'clamp(2.1rem, 5vw, 3.5rem)', fontWeight: 800, lineHeight: 1.1 }}>
                 Готовы начать{' '}
-                <span className="text-violet-400">обучение?</span>
+                <span className="text-blue-400">обучение?</span>
               </h2>
               <p className="text-gray-400 mb-12 max-w-xl mx-auto leading-relaxed text-lg">
                 Присоединяйтесь к тысячам школьников, которые уже развивают свои навыки вместе с Московским Политехом
@@ -420,9 +379,9 @@ export const HomePage: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link to="/register">
                   <motion.button
-                    whileHover={{ scale: 1.04, boxShadow: '0 0 40px rgba(124,58,237,0.5)' }}
+                    whileHover={{ scale: 1.04, boxShadow: '0 0 40px rgba(59,130,246,0.5)' }}
                     whileTap={{ scale: 0.97 }}
-                    className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-11 py-4.5 rounded-xl text-base font-semibold transition-colors"
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-11 py-4.5 rounded-xl text-base font-semibold transition-colors shadow-lg shadow-blue-500/25"
                   >
                     Зарегистрироваться <ArrowRight className="size-5" />
                   </motion.button>

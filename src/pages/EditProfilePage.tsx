@@ -11,12 +11,14 @@ import { toast } from 'sonner';
 export const EditProfilePage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const showSchool = user?.role === 'Пользователь';
 
   const [form, setForm] = useState({
     nickname: '',
     firstName: '',
     lastName: '',
     middleName: '',
+    birthDate: '',
     description: '',
     schoolId: '',
     classId: '',
@@ -31,19 +33,40 @@ export const EditProfilePage: React.FC = () => {
     if (!user) { navigate('/login'); return; }
     const init = async () => {
       try {
-        const accRes = await accountsApi.getAccount(user.nickname);
+        const [accRes, schRes] = await Promise.all([
+          accountsApi.getAccount(user.nickname),
+          schoolsApi.getAll(),
+        ]);
+
         const acc = accRes.data;
+        const allSchools = schRes.data ?? [];
+        setSchools(allSchools);
+
+        let schoolId = '';
+        let classId = '';
+
+        if (showSchool && acc.schoolId) {
+          schoolId = String(acc.schoolId);
+          try {
+            const clsRes = await schoolClassesApi.getBySchool(acc.schoolId);
+            const cls = clsRes.data ?? [];
+            setClasses(cls);
+            if (acc.classId) classId = String(acc.classId);
+          } catch {
+            setClasses([]);
+          }
+        }
+
         setForm({
           nickname: acc.nickname ?? '',
           firstName: acc.firstName ?? '',
           lastName: acc.lastName ?? '',
           middleName: acc.middleName ?? '',
+          birthDate: acc.birthDate ?? '',
           description: acc.description ?? '',
-          schoolId: '',
-          classId: '',
+          schoolId,
+          classId,
         });
-        const schRes = await schoolsApi.getAll();
-        setSchools(schRes.data);
       } catch {
         toast.error('Ошибка загрузки данных');
       } finally {
@@ -51,7 +74,7 @@ export const EditProfilePage: React.FC = () => {
       }
     };
     init();
-  }, [user]);
+  }, [user, navigate, showSchool]);
 
   const handleSchoolChange = async (schoolId: string) => {
     setForm({ ...form, schoolId, classId: '' });
@@ -73,9 +96,10 @@ export const EditProfilePage: React.FC = () => {
       if (form.firstName.trim()) fd.append('firstName', form.firstName.trim());
       if (form.lastName.trim()) fd.append('lastName', form.lastName.trim());
       if (form.middleName.trim()) fd.append('middleName', form.middleName.trim());
+      if (form.birthDate) fd.append('birthDate', form.birthDate);
       if (form.description.trim()) fd.append('description', form.description.trim());
-      if (form.schoolId) fd.append('schoolId', form.schoolId);
-      if (form.classId) fd.append('classId', form.classId);
+      if (showSchool && form.schoolId) fd.append('schoolId', form.schoolId);
+      if (showSchool && form.classId) fd.append('classId', form.classId);
       if (photo) fd.append('photo', photo);
       await accountsApi.saveInfo(fd);
       toast.success('Профиль обновлён!');
@@ -106,19 +130,19 @@ export const EditProfilePage: React.FC = () => {
     >
       <button
         onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-2 text-base text-gray-500 hover:text-gray-700 mb-6 transition-colors group"
+        className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground mb-6 transition-colors group"
       >
         <ArrowLeft className="size-5 group-hover:-translate-x-0.5 transition-transform" />
         Назад
       </button>
 
-      <div className="bg-white rounded-2xl border border-gray-100 p-8">
-        <h1 className="text-gray-900 text-2xl font-bold mb-6">Редактирование профиля</h1>
+      <div className="bg-card rounded-2xl border border-border p-8">
+        <h1 className="text-foreground text-2xl font-bold mb-6">Редактирование профиля</h1>
 
         {/* Avatar */}
         <div className="flex items-center gap-5 mb-7 pb-7 border-b border-gray-100">
-          <div className="size-18 rounded-2xl bg-indigo-100 flex items-center justify-center" style={{ width: 72, height: 72 }}>
-            <User className="size-8 text-indigo-400" />
+          <div className="size-18 rounded-2xl bg-blue-100 flex items-center justify-center" style={{ width: 72, height: 72 }}>
+            <User className="size-8 text-blue-400" />
           </div>
           <div>
             <p className="text-base text-gray-600 mb-2">Фото профиля</p>
@@ -126,7 +150,7 @@ export const EditProfilePage: React.FC = () => {
               type="file"
               accept=".jpg,.jpeg,.png"
               onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-              className="text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
           </div>
         </div>
@@ -138,7 +162,7 @@ export const EditProfilePage: React.FC = () => {
               type="text"
               value={form.nickname}
               onChange={(e) => setForm({ ...form, nickname: e.target.value })}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
               placeholder="Ваш никнейм"
             />
           </div>
@@ -150,7 +174,7 @@ export const EditProfilePage: React.FC = () => {
                 type="text"
                 value={form.firstName}
                 onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
                 placeholder="Иван"
               />
             </div>
@@ -160,7 +184,7 @@ export const EditProfilePage: React.FC = () => {
                 type="text"
                 value={form.lastName}
                 onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
                 placeholder="Иванов"
               />
             </div>
@@ -172,8 +196,18 @@ export const EditProfilePage: React.FC = () => {
               type="text"
               value={form.middleName}
               onChange={(e) => setForm({ ...form, middleName: e.target.value })}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
               placeholder="Иванович"
+            />
+          </div>
+
+          <div>
+            <label className="block text-base text-gray-700 font-medium mb-2">Дата рождения</label>
+            <input
+              type="date"
+              value={form.birthDate}
+              onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
             />
           </div>
 
@@ -183,39 +217,43 @@ export const EditProfilePage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
               placeholder="Расскажите о себе..."
             />
           </div>
 
-          <div>
-            <label className="block text-base text-gray-700 font-medium mb-2">Школа</label>
-            <select
-              value={form.schoolId}
-              onChange={(e) => handleSchoolChange(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
-            >
-              <option value="">Не выбрано</option>
-              {schools.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
+          {showSchool && (
+            <>
+              <div>
+                <label className="block text-base text-gray-700 font-medium mb-2">Школа</label>
+                <select
+                  value={form.schoolId}
+                  onChange={(e) => handleSchoolChange(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                >
+                  <option value="">Не выбрано</option>
+                  {schools.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
 
-          {classes.length > 0 && (
-            <div>
-              <label className="block text-base text-gray-700 font-medium mb-2">Класс</label>
-              <select
-                value={form.classId}
-                onChange={(e) => setForm({ ...form, classId: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
-              >
-                <option value="">Не выбрано</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+              {classes.length > 0 && (
+                <div>
+                  <label className="block text-base text-gray-700 font-medium mb-2">Класс</label>
+                  <select
+                    value={form.classId}
+                    onChange={(e) => setForm({ ...form, classId: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                  >
+                    <option value="">Не выбрано</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
           )}
 
           <motion.button
@@ -223,7 +261,7 @@ export const EditProfilePage: React.FC = () => {
             whileTap={{ scale: 0.99 }}
             onClick={handleSave}
             disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white text-base font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 mt-2"
+            className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 text-white text-base font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60 mt-2"
           >
             {saving ? (
               <span className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
