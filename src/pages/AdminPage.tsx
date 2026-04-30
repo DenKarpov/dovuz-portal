@@ -5,7 +5,7 @@ import {
   GraduationCap, Layers, ChevronRight, FileText, Send, Award, X, Filter,
 } from 'lucide-react';
 import { accountsApi, type GetAllUserResponse } from '../app/api/accounts';
-import { rolesApi, type RoleResponse } from '../app/api/roles';
+import { rolesApi, roleDisplayLabel, type RoleResponse } from '../app/api/roles';
 import { schoolsApi, type SchoolResponse } from '../app/api/schools';
 import { schoolClassesApi, type SchoolClassResponse } from '../app/api/schoolClasses';
 import { subjectsApi, type SubjectResponse } from '../app/api/subjects';
@@ -123,6 +123,9 @@ const UsersTab: React.FC = () => {
   const [editRoleOpen, setEditRoleOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<GetAllUserResponse | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [regForm, setRegForm] = useState({ email: '', nickname: '', password: '', roleId: '' });
+  const [registerSaving, setRegisterSaving] = useState(false);
 
   const fetchUsers = async (p = 0) => {
     setLoading(true);
@@ -136,7 +139,12 @@ const UsersTab: React.FC = () => {
 
   useEffect(() => {
     fetchUsers(0);
-    rolesApi.getAll().then(r => setRoles(r.data)).catch(() => {});
+    rolesApi
+      .getAll()
+      .then(r => setRoles(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {
+        toast.error('Не удалось загрузить список ролей');
+      });
   }, []);
 
   const userFullName = (u: GetAllUserResponse) => {
@@ -180,6 +188,34 @@ const UsersTab: React.FC = () => {
       setEditRoleOpen(false);
       fetchUsers(page);
     } catch (err: any) { toast.error(err.response?.data?.message ?? 'Ошибка'); }
+  };
+
+  const handleRegisterUser = async () => {
+    if (!regForm.email.trim() || !regForm.nickname.trim() || !regForm.password) {
+      toast.error('Укажите email, никнейм и пароль');
+      return;
+    }
+    if (regForm.password.length < 8) {
+      toast.error('Пароль не короче 8 символов');
+      return;
+    }
+    setRegisterSaving(true);
+    try {
+      await accountsApi.adminRegisterUser({
+        email: regForm.email.trim(),
+        nickname: regForm.nickname.trim(),
+        password: regForm.password,
+        ...(regForm.roleId && { role_id: Number(regForm.roleId) }),
+      });
+      toast.success('Пользователь добавлен');
+      setRegisterOpen(false);
+      setRegForm({ email: '', nickname: '', password: '', roleId: '' });
+      fetchUsers(page);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Не удалось создать пользователя');
+    } finally {
+      setRegisterSaving(false);
+    }
   };
 
   const roleStyles: Record<string, string> = {
@@ -230,7 +266,16 @@ const UsersTab: React.FC = () => {
         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-50">
             <h3 className="text-slate-800 font-semibold">Все пользователи</h3>
-            <span className="text-xs text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">{filtered.length} чел.</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setRegisterOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="size-4" /> Добавить
+              </button>
+              <span className="text-xs text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">{filtered.length} чел.</span>
+            </div>
           </div>
           {loading ? (
               <div className="p-8 text-center text-slate-400">Загрузка...</div>
@@ -318,7 +363,9 @@ const UsersTab: React.FC = () => {
                   className="w-full appearance-none border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
               >
                 <option value="">Выберите роль</option>
-                {roles.map(r => <option key={r.id} value={r.id}>{r.description ?? r.name}</option>)}
+                {roles.map(r => (
+                  <option key={r.id} value={r.id}>{roleDisplayLabel(r)}</option>
+                ))}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
             </div>
@@ -327,6 +374,57 @@ const UsersTab: React.FC = () => {
                 Сохранить
               </button>
               <button onClick={() => setEditRoleOpen(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-200">
+                Отмена
+              </button>
+            </div>
+          </div>
+        </Modal>
+
+        <Modal open={registerOpen} onClose={() => setRegisterOpen(false)} title="Новый пользователь">
+          <div className="p-6 space-y-3 max-w-md">
+            <input
+              type="email"
+              placeholder="Email"
+              value={regForm.email}
+              onChange={e => setRegForm(f => ({ ...f, email: e.target.value }))}
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm"
+            />
+            <input
+              placeholder="Никнейм"
+              value={regForm.nickname}
+              onChange={e => setRegForm(f => ({ ...f, nickname: e.target.value }))}
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm"
+            />
+            <input
+              type="password"
+              placeholder="Пароль (мин. 8 символов)"
+              value={regForm.password}
+              onChange={e => setRegForm(f => ({ ...f, password: e.target.value }))}
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm"
+            />
+            <div className="relative">
+              <select
+                value={regForm.roleId}
+                onChange={e => setRegForm(f => ({ ...f, roleId: e.target.value }))}
+                className="w-full appearance-none border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50"
+              >
+                <option value="">Роль по умолчанию (ученик)</option>
+                {roles.map(r => (
+                  <option key={r.id} value={r.id}>{roleDisplayLabel(r)}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={registerSaving}
+                onClick={handleRegisterUser}
+                className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50"
+              >
+                {registerSaving ? 'Создание…' : 'Создать'}
+              </button>
+              <button type="button" onClick={() => setRegisterOpen(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 text-sm rounded-xl">
                 Отмена
               </button>
             </div>

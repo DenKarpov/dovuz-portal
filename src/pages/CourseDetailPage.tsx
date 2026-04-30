@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   BookOpenCheck, ChevronLeft, Upload, FileText, CheckCircle, Clock,
   AlertCircle, Send, Paperclip, GraduationCap, Play, Download, Star, Award, Trophy, Sparkles, History,
-  Users, Presentation, ArrowRight, Plus, Edit2, Trash2, Save, X, Table2,
+  Users, Presentation, ArrowRight, Plus, Edit2, Trash2, Save, X, Table2, Lock,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -22,6 +22,18 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { ModeratorCoursePanel } from '../app/components/ModeratorCoursePanel';
 import { ModeratorCourseStats } from '../app/components/ModeratorCourseStats';
+
+function sumHearingReviewGrades(sub: HearingSubmissionResponse | undefined): number {
+  if (!sub?.reviews?.length) return 0;
+  return sub.reviews.reduce((acc, r) => acc + (r.grade ?? 0), 0);
+}
+
+/** Этапы слушаний после выбора темы закрыты до активации модератором */
+function isHearingLockedForStudent(h: CourseLessonResponse, isModeratorOnly: boolean): boolean {
+  if (isModeratorOnly) return false;
+  if (h.hearing_stage === 'TOPIC_APPROVAL') return false;
+  return !h.hearing_open_for_students;
+}
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   SUBMITTED:      { label: 'На проверке',  color: 'text-yellow-800 bg-yellow-100 border-yellow-200 dark:bg-yellow-950/50 dark:text-yellow-200 dark:border-yellow-800', icon: <Clock className="size-4" /> },
@@ -44,6 +56,8 @@ export const CourseDetailPage: React.FC = () => {
   const [activeLesson, setActiveLesson] = useState<CourseLessonResponse | null>(null);
   const [activeTab, setActiveTab] = useState<'lecture' | 'practice'>('lecture');
   const [showCelebration, setShowCelebration] = useState(false);
+  /** Сумма баллов по рецензиям слушаний (групповые этапы) */
+  const [hearingPointsTotal, setHearingPointsTotal] = useState(0);
 
   const fetchData = useCallback(async () => {
     if (!courseId) return;
@@ -69,15 +83,36 @@ export const CourseDetailPage: React.FC = () => {
       );
       setLessonCriteria(criteriaMap);
 
-      if (!activeLesson && courseRes.data.lessons.length > 0) {
-        setActiveLesson(courseRes.data.lessons[0]);
-      }
+      const regular = courseRes.data.lessons.filter(l => l.category !== 'HEARING');
+      setActiveLesson(prev => {
+        if (prev && regular.some(l => l.id === prev.id)) return prev;
+        return regular[0] ?? null;
+      });
 
-      const completed = (subsRes.data ?? []).filter(s => s.status === 'ACCEPTED').length;
+      let hp = 0;
+      try {
+        const gr = await courseGroupsApi.getMyGroup(Number(courseId));
+        const gid = gr.data?.id;
+        if (gid != null) {
+          for (const hl of courseRes.data.lessons.filter(l => l.category === 'HEARING')) {
+            try {
+              const hr = await coursesApi.getMyHearingSubmission(hl.id, gid);
+              if (hr.data) hp += sumHearingReviewGrades(hr.data);
+            } catch { /* нет отправки */ }
+          }
+        }
+      } catch { /* нет группы */ }
+      setHearingPointsTotal(hp);
+
+      const acceptedRegular = (subsRes.data ?? []).filter(s => {
+        const les = courseRes.data.lessons.find(x => x.id === s.lesson_id);
+        return les && les.category !== 'HEARING' && s.status === 'ACCEPTED';
+      }).length;
       if (
         user?.role !== 'Модератор' &&
-        completed > 0 &&
-        completed === courseRes.data.lessons.length
+        acceptedRegular > 0 &&
+        regular.length > 0 &&
+        acceptedRegular === regular.length
       ) {
         setShowCelebration(true);
         setTimeout(() => setShowCelebration(false), 5000);
@@ -97,15 +132,17 @@ export const CourseDetailPage: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!course || !activeLesson) return;
-      const idx = course.lessons.findIndex(l => l.id === activeLesson.id);
+      const regular = course.lessons.filter(l => l.category !== 'HEARING');
+      const idx = regular.findIndex(l => l.id === activeLesson.id);
+      if (idx < 0) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-        if (idx < course.lessons.length - 1) {
-          setActiveLesson(course.lessons[idx + 1]);
+        if (idx < regular.length - 1) {
+          setActiveLesson(regular[idx + 1]);
           setActiveTab('lecture');
         }
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         if (idx > 0) {
-          setActiveLesson(course.lessons[idx - 1]);
+          setActiveLesson(regular[idx - 1]);
           setActiveTab('lecture');
         }
       }
@@ -132,14 +169,18 @@ export const CourseDetailPage: React.FC = () => {
     return <div className="max-w-4xl mx-auto px-6 py-20 text-center"><p className="text-muted-foreground text-lg">Курс не найден</p></div>;
   }
 
-  const completedCount = Array.from(submissions.values()).filter(s => s.status === 'ACCEPTED').length;
-  const totalScore = Array.from(submissions.values()).reduce((s, v) => s + (v.score ?? 0), 0);
-  const maxPossible = course.lessons.reduce((sum, l) => {
+  const regularLessons = course.lessons.filter(l => l.category !== 'HEARING');
+  const lessonMaxPoints = (l: CourseLessonResponse) => {
     const lc = lessonCriteria.get(l.id);
-    return sum + (lc && lc.length > 0 ? lc.reduce((s, c) => s + c.max_points, 0) : l.max_score);
-  }, 0);
-  const progressPct = course.lessons.length > 0 ? Math.round((completedCount / course.lessons.length) * 100) : 0;
-  const isComplete = completedCount === course.lessons.length && course.lessons.length > 0;
+    return lc && lc.length > 0 ? lc.reduce((s, c) => s + c.max_points, 0) : l.max_score;
+  };
+
+  const completedCount = regularLessons.filter(l => submissions.get(l.id)?.status === 'ACCEPTED').length;
+  const lessonScoreSum = Array.from(submissions.values()).reduce((s, v) => s + (v.score ?? 0), 0);
+  const totalScore = lessonScoreSum + hearingPointsTotal;
+  const maxPossible = course.lessons.reduce((sum, l) => sum + lessonMaxPoints(l), 0);
+  const progressPct = regularLessons.length > 0 ? Math.round((completedCount / regularLessons.length) * 100) : 0;
+  const isComplete = completedCount === regularLessons.length && regularLessons.length > 0;
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 min-h-[calc(100vh-5rem)] bg-background">
@@ -160,7 +201,7 @@ export const CourseDetailPage: React.FC = () => {
                 <Trophy className="size-16 text-yellow-500 mx-auto mb-4" />
               </motion.div>
               <h2 className="text-2xl font-bold text-foreground mb-2">Курс пройден!</h2>
-              <p className="text-muted-foreground">Вы выполнили все задания. Итого: {totalScore} баллов</p>
+              <p className="text-muted-foreground">Вы выполнили все учебные задания. Итого по баллам: {totalScore}</p>
             </div>
           </motion.div>
         )}
@@ -199,7 +240,7 @@ export const CourseDetailPage: React.FC = () => {
             transition={{ type: 'spring', stiffness: 400, damping: 10 }}
           >
             <div className="size-8 bg-primary/10 rounded-lg flex items-center justify-center"><BookOpenCheck className="size-4 text-primary" /></div>
-            <div><p className="text-xs text-muted-foreground">Прогресс</p><p className="text-sm font-semibold text-foreground">{completedCount}/{course.lessons.length} заданий</p></div>
+            <div><p className="text-xs text-muted-foreground">Прогресс</p><p className="text-sm font-semibold text-foreground">{completedCount}/{regularLessons.length} уроков</p></div>
           </motion.div>
           <motion.div
             className="flex items-center gap-2 px-4 py-2 bg-card rounded-xl border border-border cursor-default"
@@ -428,6 +469,7 @@ const HEARING_STAGE_LABELS: Record<string, string> = {
   TOPIC_APPROVAL: 'Выбор и согласование темы',
   INTERMEDIATE: 'Промежуточный показ',
   FINAL: 'Финальный показ',
+  CONFERENCE_DEFENSE: 'Защита на конференции',
 };
 
 const hearingStatusConfig: Record<string, { label: string; color: string }> = {
@@ -442,13 +484,15 @@ const hearingStatusConfig: Record<string, { label: string; color: string }> = {
 const HearingGroupReviewCard: React.FC<{
   sub: HearingSubmissionResponse;
   groupLabel: string;
+  groupDescription?: string | null;
   membersLine: string;
-  onSend: (submissionId: number, comment: string, grade: number, status: string) => Promise<void>;
+  onSend: (submissionId: number, comment: string, grade: number | null, status: string) => Promise<void>;
 }> = ({ sub, groupLabel, membersLine, onSend }) => {
   const [comment, setComment] = useState('');
   const [grade, setGrade] = useState(5);
   const [status, setStatus] = useState('ACCEPTED');
   const [sending, setSending] = useState(false);
+  const accepted = sub.status === 'ACCEPTED';
 
   return (
     <div className="border border-border rounded-xl p-4 space-y-3">
@@ -474,44 +518,95 @@ const HearingGroupReviewCard: React.FC<{
       )}
       {sub.reviews?.length > 0 && (
         <div className="text-xs text-muted-foreground space-y-1">
-          {sub.reviews.map(r => (
+          {[...(sub.reviews ?? [])]
+            .sort((a, b) => new Date(a.reviewed_at.replace(' ', 'T')).getTime() - new Date(b.reviewed_at.replace(' ', 'T')).getTime())
+            .map(r => (
             <div key={r.id} className="bg-muted/50 rounded-lg p-2 border border-border">
               <span className="font-medium">{r.moderator_name}</span>
               {r.grade != null && <> — оценка {r.grade}</>}
               {r.comment && <p className="mt-0.5">{r.comment}</p>}
             </div>
-          ))}
+            ))}
         </div>
       )}
       <div className="space-y-2 pt-2 border-t border-border">
         <textarea value={comment} onChange={e => setComment(e.target.value)} rows={2} placeholder="Комментарий..." className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none bg-background focus:ring-2 focus:ring-primary outline-none" />
-        <div className="flex items-center gap-3 flex-wrap">
+        {!accepted && (
+          <div className="flex items-center gap-3 flex-wrap">
           <label className="text-xs text-muted-foreground shrink-0">Оценка:</label>
-          <input type="number" min={1} max={100} value={grade} onChange={e => setGrade(Number(e.target.value))} className="w-16 border border-border rounded-lg px-2 py-1.5 text-sm bg-background focus:ring-2 focus:ring-primary outline-none" />
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={Number.isFinite(grade) ? grade : 5}
+            onChange={e => {
+              const v = Number(e.target.value);
+              if (!Number.isFinite(v)) return;
+              setGrade(v);
+            }}
+            className="w-16 border border-border rounded-lg px-2 py-1.5 text-sm bg-background focus:ring-2 focus:ring-primary outline-none"
+          />
           <select value={status} onChange={e => setStatus(e.target.value)} className="border border-border rounded-lg px-2 py-1.5 text-sm bg-background focus:ring-2 focus:ring-primary outline-none">
             <option value="ACCEPTED">Принято</option>
             <option value="NEEDS_REVISION">На доработку</option>
             <option value="REJECTED">Отклонено</option>
           </select>
-          <button
-            type="button"
-            disabled={sending}
-            onClick={async () => {
-              setSending(true);
-              try {
-                await onSend(sub.id, comment, grade, status);
-                setComment('');
-              } finally {
-                setSending(false);
-              }
-            }}
-            className="ml-auto px-4 py-1.5 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
-          >
-            {sending ? '…' : 'Отправить рецензию'}
-          </button>
         </div>
+        )}
+        <button
+          type="button"
+          disabled={sending || !comment.trim()}
+          onClick={async () => {
+            setSending(true);
+            try {
+              if (!accepted) {
+                if (!Number.isFinite(grade) || grade < 1 || grade > 10) {
+                  toast.error('Оценка должна быть от 1 до 10');
+                  return;
+                }
+                await onSend(sub.id, comment, grade, status);
+              } else {
+                await onSend(sub.id, comment, null, 'ACCEPTED');
+              }
+              setComment('');
+            } finally {
+              setSending(false);
+            }
+          }}
+          className="ml-auto px-4 py-1.5 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
+        >
+          {sending ? '…' : accepted ? 'Отправить комментарий' : 'Отправить рецензию'}
+        </button>
       </div>
     </div>
+  );
+};
+
+const HearingSubmissionListItem: React.FC<{
+  sub: HearingSubmissionResponse;
+  title: string;
+  sender: string;
+  selected: boolean;
+  onClick: () => void;
+}> = ({ sub, title, sender, selected, onClick }) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left px-3 py-2 rounded-xl border transition-colors ${
+        selected ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-muted/30'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">{title}</p>
+          <p className="text-xs text-muted-foreground truncate">{sender}</p>
+        </div>
+        <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border ${hearingStatusConfig[sub.status]?.color ?? ''}`}>
+          {hearingStatusConfig[sub.status]?.label ?? sub.status}
+        </span>
+      </div>
+    </button>
   );
 };
 
@@ -524,6 +619,14 @@ interface HearingsTabProps {
 const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModeratorOnly }) => {
   const [myGroup, setMyGroup] = useState<CourseGroupResponse | null>(null);
   const [allGroups, setAllGroups] = useState<CourseGroupResponse[]>([]);
+  const [studentTopicTitle, setStudentTopicTitle] = useState('');
+  const [studentTopicDesc, setStudentTopicDesc] = useState('');
+  const [joiningGroupId, setJoiningGroupId] = useState<number | null>(null);
+  const [creatingMyGroup, setCreatingMyGroup] = useState(false);
+  const [editingMyTopic, setEditingMyTopic] = useState(false);
+  const [editTopicTitle, setEditTopicTitle] = useState('');
+  const [editTopicDesc, setEditTopicDesc] = useState('');
+  const [savingMyTopic, setSavingMyTopic] = useState(false);
   const [hearingLessons, setHearingLessons] = useState<CourseLessonResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeHearing, setActiveHearing] = useState<CourseLessonResponse | null>(null);
@@ -535,9 +638,13 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
   const [file, setFile] = useState<File | null>(null);
   const [textContent, setTextContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [hearingComment, setHearingComment] = useState('');
+  const [sendingHearingComment, setSendingHearingComment] = useState(false);
 
   // Moderator: hearing submissions (group-based)
   const [allSubmissions, setAllSubmissions] = useState<Map<number, HearingSubmissionResponse[]>>(new Map());
+  const [moderatorStatusFilter, setModeratorStatusFilter] = useState<string>('ALL');
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<number | null>(null);
 
   // Moderator: group management
   const [showGroupForm, setShowGroupForm] = useState(false);
@@ -556,7 +663,11 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
       const hearings = lessons.filter(l => l.category === 'HEARING');
       hearings.sort((a, b) => a.order_number - b.order_number);
       setHearingLessons(hearings);
-      if (hearings.length > 0 && !activeHearing) setActiveHearing(hearings[0]);
+      setActiveHearing(prev => {
+        if (prev && hearings.some(h => h.id === prev.id)) return prev;
+        const first = hearings.find(h => !isHearingLockedForStudent(h, isModeratorOnly)) ?? hearings[0];
+        return first ?? null;
+      });
 
       const criteriaMap = new Map<number, GradingCriterionResponse[]>();
       await Promise.all(hearings.map(async (h) => {
@@ -611,6 +722,89 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
+    // сброс выбранной работы при смене этапа
+    setSelectedSubmissionId(null);
+  }, [activeHearing?.id]);
+
+  useEffect(() => {
+    if (myGroup) {
+      setEditTopicTitle(myGroup.title);
+      setEditTopicDesc(myGroup.description ?? '');
+    } else {
+      setEditingMyTopic(false);
+    }
+  }, [myGroup?.id, myGroup?.title, myGroup?.description]);
+
+  const handleCreateMyGroup = async () => {
+    const t = studentTopicTitle.trim();
+    if (!t) return toast.error('Введите тему');
+    setCreatingMyGroup(true);
+    try {
+      const r = await courseGroupsApi.createMyGroup(courseId, { title: t, ...(studentTopicDesc.trim() ? { description: studentTopicDesc.trim() } : {}) });
+      setMyGroup(r.data);
+      toast.success('Тема сохранена');
+      await fetchData();
+    } catch (err: any) {
+      const d = err.response?.data;
+      const msg =
+        typeof d === 'string'
+          ? d
+          : d?.message ?? d?.error ?? (Array.isArray(d?.errors) ? String(d.errors[0]) : null) ?? 'Ошибка сохранения';
+      toast.error(msg);
+    } finally {
+      setCreatingMyGroup(false);
+    }
+  };
+
+  const handleJoinGroup = async (groupId: number) => {
+    setJoiningGroupId(groupId);
+    try {
+      const r = await courseGroupsApi.joinGroup(courseId, groupId);
+      setMyGroup(r.data);
+      toast.success('Вы вступили в группу');
+      await fetchData();
+    } catch (err: any) {
+      const d = err.response?.data;
+      const msg =
+        typeof d === 'string'
+          ? d
+          : d?.message ?? d?.error ?? (Array.isArray(d?.errors) ? String(d.errors[0]) : null) ?? 'Ошибка вступления';
+      toast.error(msg);
+    } finally {
+      setJoiningGroupId(null);
+    }
+  };
+
+  const handleSaveMyTopic = async () => {
+    if (!myGroup) return;
+    const t = editTopicTitle.trim();
+    if (!t) {
+      toast.error('Введите название темы');
+      return;
+    }
+    setSavingMyTopic(true);
+    try {
+      const r = await courseGroupsApi.updateMyGroupTopic(courseId, myGroup.id, {
+        title: t,
+        description: editTopicDesc.trim() || undefined,
+      });
+      setMyGroup(r.data);
+      setEditingMyTopic(false);
+      toast.success('Тема обновлена');
+      await fetchData();
+    } catch (err: any) {
+      const d = err.response?.data;
+      const msg =
+        typeof d === 'string'
+          ? d
+          : d?.message ?? d?.error ?? (Array.isArray(d?.errors) ? String(d.errors[0]) : null) ?? 'Ошибка сохранения';
+      toast.error(msg);
+    } finally {
+      setSavingMyTopic(false);
+    }
+  };
+
+  useEffect(() => {
     if (!groupSchoolId) { setSchoolStudents([]); return; }
     import('../app/api/accounts').then(({ accountsApi }) => {
       accountsApi.getBySchool(Number(groupSchoolId), 0, 500)
@@ -652,12 +846,47 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
     } finally { setSubmitting(false); }
   };
 
-  const handleReview = async (submissionId: number, comment: string, grade: number, status: string) => {
+  const handleReview = async (submissionId: number, comment: string, grade: number | null, status: string) => {
     try {
       await coursesApi.reviewHearing(submissionId, comment, grade, status);
       toast.success('Рецензия сохранена');
       fetchData();
-    } catch (err: any) { toast.error(err.response?.data?.message ?? 'Ошибка'); }
+    } catch (err: any) {
+      const d = err.response?.data;
+      const msg =
+        typeof d === 'string'
+          ? d
+          : d?.message ?? d?.error ?? (Array.isArray(d?.errors) ? String(d.errors[0]) : null) ?? 'Ошибка';
+      toast.error(msg);
+    }
+  };
+
+  const handleSendHearingComment = async () => {
+    const h = activeHearingSub;
+    if (!h) return;
+    const trimmed = hearingComment.trim();
+    if (!trimmed) return;
+    setSendingHearingComment(true);
+    try {
+      const r = await coursesApi.addHearingComment(h.id, trimmed);
+      // обновим локально, чтобы переписка сразу появилась
+      setStudentHearingSubs((prev) => {
+        const next = new Map(prev);
+        next.set(activeHearing!.id, r.data);
+        return next;
+      });
+      setHearingComment('');
+      toast.success('Комментарий отправлен');
+    } catch (err: any) {
+      const d = err.response?.data;
+      const msg =
+        typeof d === 'string'
+          ? d
+          : d?.message ?? d?.error ?? (Array.isArray(d?.errors) ? String(d.errors[0]) : null) ?? 'Ошибка';
+      toast.error(msg);
+    } finally {
+      setSendingHearingComment(false);
+    }
   };
 
   const assignedStudentIds = useMemo(() => {
@@ -813,8 +1042,62 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
           </h3>
           {myGroup ? (
             <div>
-              <p className="text-lg font-bold text-foreground">{myGroup.title}</p>
-              {myGroup.description && <p className="text-sm text-muted-foreground mt-1">{myGroup.description}</p>}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  {!editingMyTopic ? (
+                    <>
+                      <p className="text-lg font-bold text-foreground">{myGroup.title}</p>
+                      {myGroup.description && <p className="text-sm text-muted-foreground mt-1">{myGroup.description}</p>}
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        value={editTopicTitle}
+                        onChange={(e) => setEditTopicTitle(e.target.value)}
+                        className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-card font-bold"
+                      />
+                      <textarea
+                        value={editTopicDesc}
+                        onChange={(e) => setEditTopicDesc(e.target.value)}
+                        rows={2}
+                        className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-card resize-none"
+                        placeholder="Описание (необязательно)"
+                      />
+                    </div>
+                  )}
+                </div>
+                {!editingMyTopic ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingMyTopic(true)}
+                    className="shrink-0 px-3 py-2 text-xs font-semibold rounded-xl border border-border bg-muted/50 hover:bg-muted transition-colors"
+                  >
+                    Изменить тему
+                  </button>
+                ) : (
+                  <div className="shrink-0 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveMyTopic}
+                      disabled={savingMyTopic}
+                      className="px-3 py-2 text-xs font-semibold rounded-xl bg-primary text-primary-foreground disabled:opacity-50"
+                    >
+                      {savingMyTopic ? '...' : 'Сохранить'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingMyTopic(false);
+                        setEditTopicTitle(myGroup.title);
+                        setEditTopicDesc(myGroup.description ?? '');
+                      }}
+                      className="px-3 py-2 text-xs font-medium rounded-xl border border-border"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2 mt-3">
                 {myGroup.members.map(m => (
                   <span key={m.id} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs border ${m.is_owner ? 'bg-primary/10 text-primary border-primary/20 font-semibold' : 'bg-muted text-muted-foreground border-border'}`}>
@@ -824,7 +1107,56 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">Вы ещё не добавлены в группу. Обратитесь к модератору курса.</p>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground">Создать тему</p>
+                <input
+                  value={studentTopicTitle}
+                  onChange={(e) => setStudentTopicTitle(e.target.value)}
+                  placeholder="Тема проекта"
+                  className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-card focus:ring-2 focus:ring-primary outline-none"
+                />
+                <textarea
+                  value={studentTopicDesc}
+                  onChange={(e) => setStudentTopicDesc(e.target.value)}
+                  placeholder="Описание (необязательно)"
+                  rows={2}
+                  className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-card focus:ring-2 focus:ring-primary outline-none resize-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateMyGroup}
+                  disabled={creatingMyGroup}
+                  className="w-full py-2.5 bg-primary/10 text-primary text-sm font-semibold rounded-xl hover:bg-primary/15 disabled:opacity-50 border border-primary/20 transition-colors"
+                >
+                  {creatingMyGroup ? 'Сохранение...' : 'Сохранить тему'}
+                </button>
+              </div>
+
+              {allGroups.length > 0 && (
+                <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Или выбрать группу</p>
+                  <div className="space-y-2 max-h-56 overflow-y-auto">
+                    {allGroups.map((g) => (
+                      <div key={g.id} className="flex items-center justify-between gap-3 border border-border rounded-xl px-3 py-2 bg-card/60">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{g.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{g.school_name} · {g.members.length} чел.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleJoinGroup(g.id)}
+                          disabled={joiningGroupId === g.id}
+                          className="shrink-0 px-3 py-2 rounded-xl border border-primary/20 bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/15 disabled:opacity-50"
+                        >
+                          {joiningGroupId === g.id ? '...' : 'Вступить'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -847,8 +1179,9 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
                 const lSub = studentSubmissions.get(hl.id);
                 const done = hSub?.status === 'ACCEPTED' || lSub?.status === 'ACCEPTED';
                 const isActive = activeHearing?.id === hl.id;
+                const locked = isHearingLockedForStudent(hl, isModeratorOnly);
                 return (
-                  <button key={hl.id} onClick={() => setActiveHearing(hl)} className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${isActive ? 'bg-primary/10 border-l-2 border-l-primary' : 'hover:bg-muted/50 border-l-2 border-l-transparent'}`}>
+                  <button key={hl.id} type="button" onClick={() => setActiveHearing(hl)} className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${isActive ? 'bg-primary/10 border-l-2 border-l-primary' : 'hover:bg-muted/50 border-l-2 border-l-transparent'} ${locked ? 'opacity-80' : ''}`}>
                     <span className={`size-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${done ? 'bg-emerald-100 text-emerald-800' : (hSub ?? lSub) ? 'bg-yellow-100 text-yellow-800' : 'bg-muted text-muted-foreground'}`}>
                       {done ? '✓' : idx + 1}
                     </span>
@@ -856,6 +1189,7 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
                       <span className={`text-sm font-medium truncate block ${isActive ? 'text-primary' : 'text-foreground'}`}>{hl.title}</span>
                       {hl.hearing_stage && <span className="text-[10px] text-muted-foreground">{HEARING_STAGE_LABELS[hl.hearing_stage] ?? hl.hearing_stage}</span>}
                     </div>
+                    {locked && <Lock className="size-3.5 text-amber-600 shrink-0" aria-hidden />}
                   </button>
                 );
               })}
@@ -895,16 +1229,30 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
 
                 {/* Student: submit work */}
                 {!isModeratorOnly && (() => {
+                  const lockedForStudent = isHearingLockedForStudent(activeHearing, isModeratorOnly);
                   const h = activeHearingSub;
                   const l = activeLessonSub;
                   const isHear = activeHearing.category === 'HEARING';
                   const accepted = (isHear && h?.status === 'ACCEPTED') || (!isHear && l?.status === 'ACCEPTED');
                   const showWork = isHear ? h : l;
+
+                  if (lockedForStudent) {
+                    return (
+                      <div className="bg-card rounded-2xl border border-amber-200 dark:border-amber-900/40 p-5 flex gap-3 items-start">
+                        <Lock className="size-5 text-amber-600 shrink-0 mt-0.5" aria-hidden />
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Этап слушания пока недоступен</p>
+                          <p className="text-sm text-muted-foreground mt-1">Модератор откроет этот этап, когда придёт время. Описание и критерии вы можете посмотреть выше.</p>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                   <div className="bg-card rounded-2xl border border-border p-5 space-y-3">
                     {activeHearing.hearing_stage === 'TOPIC_APPROVAL' && myGroup && (
                       <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 mb-1">
-                        <p className="text-xs font-semibold text-primary">Тема проекта (назначена преподавателем)</p>
+                        <p className="text-xs font-semibold text-primary">Тема проекта (выбрана группой)</p>
                         <p className="text-lg font-bold text-foreground mt-1">{myGroup.title}</p>
                         {myGroup.description && <p className="text-sm text-muted-foreground mt-1">{myGroup.description}</p>}
                         {h && (
@@ -933,7 +1281,9 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
                         )}
                         {h.reviews?.length > 0 && (
                           <div className="text-xs text-muted-foreground space-y-1">
-                            {h.reviews.map(r => (
+                            {[...(h.reviews ?? [])]
+                              .sort((a, b) => new Date(a.reviewed_at.replace(' ', 'T')).getTime() - new Date(b.reviewed_at.replace(' ', 'T')).getTime())
+                              .map(r => (
                               <div key={r.id} className="bg-muted/50 rounded-lg p-2 border border-border">
                                 <span className="font-medium">{r.moderator_name}</span>
                                 {r.grade != null && <> — оценка {r.grade}</>}
@@ -942,6 +1292,24 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
                             ))}
                           </div>
                         )}
+                        <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground">Комментарий</p>
+                          <textarea
+                            value={hearingComment}
+                            onChange={(e) => setHearingComment(e.target.value)}
+                            placeholder="Напишите комментарий модератору..."
+                            rows={2}
+                            className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-card focus:ring-2 focus:ring-primary outline-none resize-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSendHearingComment}
+                            disabled={sendingHearingComment || !hearingComment.trim()}
+                            className="w-full py-2.5 bg-primary/10 text-primary text-sm font-semibold rounded-xl hover:bg-primary/15 disabled:opacity-50 border border-primary/20 transition-colors"
+                          >
+                            {sendingHearingComment ? 'Отправка...' : 'Отправить'}
+                          </button>
+                        </div>
                       </div>
                     )}
                     {!isHear && l && (
@@ -994,23 +1362,83 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
                 {/* Moderator: review submissions */}
                 {isModeratorOnly && (
                   <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
-                    <h4 className="text-sm font-semibold text-foreground">Работы групп</h4>
-                    {(allSubmissions.get(activeHearing.id) ?? []).length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Пока нет отправленных работ</p>
-                    ) : (
-                      (allSubmissions.get(activeHearing.id) ?? []).map(sub => {
-                        const group = allGroups.find(g => g.id === sub.group_id);
-                        return (
-                          <HearingGroupReviewCard
-                            key={sub.id}
-                            sub={sub}
-                            groupLabel={group?.title ?? `Группа #${sub.group_id}`}
-                            membersLine={(group?.members.map(m => `${m.last_name ?? ''} ${m.first_name ?? ''}`.trim()).filter(Boolean).join(', ') ?? '')}
-                            onSend={handleReview}
-                          />
-                        );
-                      })
-                    )}
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <h4 className="text-sm font-semibold text-foreground">Работы групп</h4>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Фильтр:</span>
+                        <select
+                          value={moderatorStatusFilter}
+                          onChange={(e) => setModeratorStatusFilter(e.target.value)}
+                          className="border border-border rounded-lg px-2 py-1.5 text-xs bg-background"
+                        >
+                          <option value="ALL">Все</option>
+                          <option value="ON_REVIEW">На проверке</option>
+                          <option value="ACCEPTED">Принято</option>
+                          <option value="NEEDS_REVISION">На доработку</option>
+                          <option value="REJECTED">Отклонено</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const subs = (allSubmissions.get(activeHearing.id) ?? []);
+                      const filteredSubs = moderatorStatusFilter === 'ALL'
+                        ? subs
+                        : subs.filter(s => s.status === moderatorStatusFilter);
+                      if (filteredSubs.length === 0) {
+                        return <p className="text-sm text-muted-foreground">Пока нет работ по выбранному фильтру</p>;
+                      }
+
+                      const selected = selectedSubmissionId != null
+                        ? filteredSubs.find(s => s.id === selectedSubmissionId) ?? filteredSubs[0]
+                        : filteredSubs[0];
+                      const selectedGroup = allGroups.find(g => g.id === selected.group_id);
+                      const sender = (() => {
+                        const owner = selectedGroup?.members.find(m => m.is_owner);
+                        const s = owner ?? selectedGroup?.members[0];
+                        return s ? `${s.last_name ?? ''} ${s.first_name ?? ''}`.trim() : `Группа #${selected.group_id}`;
+                      })();
+
+                      return (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                          <div className="lg:col-span-1 space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                            {filteredSubs.map(sub => {
+                              const g = allGroups.find(x => x.id === sub.group_id);
+                              const owner = g?.members.find(m => m.is_owner);
+                              const s = owner ?? g?.members[0];
+                              const senderLine = s ? `${s.last_name ?? ''} ${s.first_name ?? ''}`.trim() : '';
+                              return (
+                                <HearingSubmissionListItem
+                                  key={sub.id}
+                                  sub={sub}
+                                  title={g?.title ?? `Группа #${sub.group_id}`}
+                                  sender={senderLine || (g?.school_name ? g.school_name : '—')}
+                                  selected={selectedSubmissionId === sub.id || (selectedSubmissionId == null && sub.id === selected.id)}
+                                  onClick={() => setSelectedSubmissionId(sub.id)}
+                                />
+                              );
+                            })}
+                          </div>
+
+                          <div className="lg:col-span-2 space-y-3">
+                            <div className="rounded-xl border border-border bg-muted/20 p-4">
+                              <p className="text-xs font-semibold text-muted-foreground">Тема</p>
+                              <p className="text-lg font-bold text-foreground mt-1">{selectedGroup?.title ?? `Группа #${selected.group_id}`}</p>
+                              {selectedGroup?.description && (
+                                <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{selectedGroup.description}</p>
+                              )}
+                            </div>
+                            <HearingGroupReviewCard
+                              sub={selected}
+                              groupLabel={selectedGroup?.title ?? `Группа #${selected.group_id}`}
+                              groupDescription={selectedGroup?.description}
+                              membersLine={(selectedGroup?.members.map(m => `${m.last_name ?? ''} ${m.first_name ?? ''}`.trim()).filter(Boolean).join(', ') ?? '')}
+                              onSend={handleReview}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </>
@@ -1265,6 +1693,8 @@ const SubmissionSection: React.FC<SubmissionSectionProps> = ({ lesson, submissio
   const [submitting, setSubmitting] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [reviewHistory, setReviewHistory] = useState<SubmissionReviewHistoryEntry[]>([]);
+  const [studentComment, setStudentComment] = useState('');
+  const [sendingStudentComment, setSendingStudentComment] = useState(false);
   const isAccepted = submission?.status === 'ACCEPTED';
   const isUpdate = !!submission && !isAccepted;
 
@@ -1293,6 +1723,38 @@ const SubmissionSection: React.FC<SubmissionSectionProps> = ({ lesson, submissio
       .then((r) => setReviewHistory(r.data ?? []))
       .catch(() => setReviewHistory([]));
   }, [submission?.id]);
+
+  const reloadHistory = async () => {
+    if (!submission?.id) return;
+    try {
+      const r = await coursesApi.getSubmissionReviewHistory(submission.id);
+      setReviewHistory(r.data ?? []);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSendStudentComment = async () => {
+    if (!submission?.id) return;
+    const trimmed = studentComment.trim();
+    if (!trimmed) return;
+    setSendingStudentComment(true);
+    try {
+      await coursesApi.addSubmissionReviewReply(submission.id, trimmed);
+      setStudentComment('');
+      await reloadHistory();
+      toast.success('Комментарий отправлен');
+    } catch (err: any) {
+      const d = err.response?.data;
+      const msg =
+        typeof d === 'string'
+          ? d
+          : d?.message ?? d?.error ?? (Array.isArray(d?.errors) ? String(d.errors[0]) : null) ?? 'Ошибка отправки';
+      toast.error(msg);
+    } finally {
+      setSendingStudentComment(false);
+    }
+  };
 
   const handleSubmit = async () => {
     const needsText = lesson.submission_type === 'TEXT' || lesson.submission_type === 'TEXT_AND_FILE';
@@ -1391,7 +1853,7 @@ const SubmissionSection: React.FC<SubmissionSectionProps> = ({ lesson, submissio
         </div>
       )}
 
-      {submission?.reviewer_comment && (
+      {!isAccepted && submission?.reviewer_comment && (
         <div
           className={`rounded-xl p-4 mb-4 text-sm ${
             submission.status === 'NEEDS_REVISION'
@@ -1404,7 +1866,7 @@ const SubmissionSection: React.FC<SubmissionSectionProps> = ({ lesson, submissio
         </div>
       )}
 
-      {submission?.score != null && (
+      {!isAccepted && submission?.score != null && (
         <div className="flex items-center gap-2 px-4 py-2 mb-4 bg-primary/10 rounded-xl border border-primary/20">
           <Star className="size-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">
@@ -1429,21 +1891,28 @@ const SubmissionSection: React.FC<SubmissionSectionProps> = ({ lesson, submissio
         </div>
       )}
 
-      {isAccepted ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="flex items-center gap-3 p-4 bg-emerald-100/80 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800"
-        >
-          <div className="size-10 bg-emerald-200/80 dark:bg-emerald-900/60 rounded-xl flex items-center justify-center">
-            <CheckCircle className="size-5 text-emerald-700 dark:text-emerald-300" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Работа принята</p>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400">Задание выполнено успешно</p>
-          </div>
-        </motion.div>
-      ) : (
+      {submission?.id && (
+        <div className="rounded-xl border border-border bg-muted/20 p-4 mb-4 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground">Комментарии</p>
+          <textarea
+            value={studentComment}
+            onChange={(e) => setStudentComment(e.target.value)}
+            placeholder="Напишите комментарий (вопрос, уточнение, ответ на замечания)..."
+            rows={2}
+            className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 bg-card resize-none"
+          />
+          <button
+            type="button"
+            onClick={handleSendStudentComment}
+            disabled={sendingStudentComment || !studentComment.trim()}
+            className="w-full py-2.5 bg-primary/10 text-primary text-sm font-semibold rounded-xl hover:bg-primary/15 disabled:opacity-50 border border-primary/20 transition-colors"
+          >
+            {sendingStudentComment ? 'Отправка...' : 'Отправить комментарий'}
+          </button>
+        </div>
+      )}
+
+      {isAccepted ? null : (
         <div className="space-y-3">
           {(lesson.submission_type === 'TEXT' || lesson.submission_type === 'TEXT_AND_FILE') && (
             <textarea
@@ -1581,6 +2050,7 @@ const CourseSummaryTab: React.FC<{ courseId: number }> = ({ courseId }) => {
                 {hearingLessons.map(l => (
                   <th key={l.id} className="px-2 py-2.5 text-center font-medium text-primary/70 min-w-[80px] bg-primary/5" title={l.title}>
                     <div className="truncate max-w-[80px]">{l.title}</div>
+                    <div className="text-[10px] opacity-60">/{l.max_score}</div>
                   </th>
                 ))}
                 <th className="px-3 py-2.5 text-center font-bold text-foreground min-w-[70px]">Итого</th>
@@ -1588,7 +2058,7 @@ const CourseSummaryTab: React.FC<{ courseId: number }> = ({ courseId }) => {
             </thead>
             <tbody>
               {filtered.map(s => {
-                const maxTotal = regularLessons.reduce((sum, l) => sum + l.max_score, 0);
+                const maxTotal = summary.lessons.reduce((sum, l) => sum + (l.max_score ?? 0), 0);
                 return (
                   <tr
                     key={s.account_id}
@@ -1619,7 +2089,13 @@ const CourseSummaryTab: React.FC<{ courseId: number }> = ({ courseId }) => {
                       const sc = s.scores.find(x => x.lesson_id === l.id);
                       return (
                         <td key={l.id} className="px-2 py-2.5 text-center bg-primary/5">
-                          {statusBadge(sc?.status ?? null)}
+                          {sc?.score != null ? (
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-semibold ${scoreColor(sc.score, l.max_score)}`}>
+                              {sc.score}
+                            </span>
+                          ) : (
+                            statusBadge(sc?.status ?? null)
+                          )}
                         </td>
                       );
                     })}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Send } from 'lucide-react';
+import { TELEGRAM_BOT_URL } from '../constants';
 
 export const Footer: React.FC = () => (
   <footer className="border-t border-border bg-card text-muted-foreground">
@@ -34,6 +35,11 @@ export const Footer: React.FC = () => (
           <h4 className="text-foreground font-semibold mb-4">🔗 Ссылки</h4>
           <ul className="space-y-2.5 text-sm">
             <li><a href="https://mospolytech.ru" target="_blank" rel="noreferrer" className="hover:text-foreground transition-colors">Сайт МосПолитеха</a></li>
+            <li>
+              <a href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
+                <Send className="size-3.5 shrink-0" /> Telegram-бот
+              </a>
+            </li>
             <li><Link to="/login" className="hover:text-foreground transition-colors">Войти</Link></li>
             <li><Link to="/register" className="hover:text-foreground transition-colors">Регистрация</Link></li>
           </ul>

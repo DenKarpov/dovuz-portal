@@ -28,6 +28,10 @@ export const EditProfilePage: React.FC = () => {
   const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pwdCurrent, setPwdCurrent] = useState('');
+  const [pwdNew, setPwdNew] = useState('');
+  const [pwdConfirm, setPwdConfirm] = useState('');
+  const [pwdSaving, setPwdSaving] = useState(false);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -108,6 +112,33 @@ export const EditProfilePage: React.FC = () => {
       toast.error(err.response?.data?.message ?? 'Ошибка сохранения');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!pwdCurrent.trim()) {
+      toast.error('Введите текущий пароль');
+      return;
+    }
+    if (pwdNew.length < 8) {
+      toast.error('Новый пароль: минимум 8 символов');
+      return;
+    }
+    if (pwdNew !== pwdConfirm) {
+      toast.error('Новый пароль и подтверждение не совпадают');
+      return;
+    }
+    setPwdSaving(true);
+    try {
+      await accountsApi.changePassword(pwdCurrent, pwdNew);
+      toast.success('Пароль изменён');
+      setPwdCurrent('');
+      setPwdNew('');
+      setPwdConfirm('');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Не удалось сменить пароль');
+    } finally {
+      setPwdSaving(false);
     }
   };
 
@@ -256,6 +287,45 @@ export const EditProfilePage: React.FC = () => {
             </>
           )}
 
+          <div className="pt-6 mt-6 border-t border-border space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Смена пароля</h2>
+            <p className="text-sm text-muted-foreground">Доступно всем пользователям.</p>
+            <div className="space-y-3">
+              <input
+                type="password"
+                autoComplete="current-password"
+                placeholder="Текущий пароль"
+                value={pwdCurrent}
+                onChange={(e) => setPwdCurrent(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="password"
+                autoComplete="new-password"
+                placeholder="Новый пароль (мин. 8 символов)"
+                value={pwdNew}
+                onChange={(e) => setPwdNew(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="password"
+                autoComplete="new-password"
+                placeholder="Подтверждение нового пароля"
+                value={pwdConfirm}
+                onChange={(e) => setPwdConfirm(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={handlePasswordChange}
+                disabled={pwdSaving}
+                className="w-full py-3 rounded-xl border border-border font-medium text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
+              >
+                {pwdSaving ? 'Сохранение…' : 'Обновить пароль'}
+              </button>
+            </div>
+          </div>
+
           <motion.button
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
@@ -268,7 +338,7 @@ export const EditProfilePage: React.FC = () => {
             ) : (
               <Save className="size-5" />
             )}
-            {saving ? 'Сохранение...' : 'Сохранить'}
+            {saving ? 'Сохранение...' : 'Сохранить профиль'}
           </motion.button>
         </div>
       </div>

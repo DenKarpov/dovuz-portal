@@ -102,4 +102,27 @@ export const accountsApi = {
 
   getCourseProgress: (nickname: string) =>
     api.get<CourseProgressResponse[]>(`/accounts/${nickname}/course-progress`),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.put<void>('/accounts/me/password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+
+  adminRegisterUser: (data: {
+    email: string;
+    nickname: string;
+    password: string;
+    role_id?: number;
+    school_id?: number;
+    class_id?: number;
+  }) =>
+    api.post<GetAllUserResponse>('/accounts/admin/register', {
+      email: data.email,
+      nickname: data.nickname,
+      password: data.password,
+      ...(data.role_id != null && { role_id: data.role_id }),
+      ...(data.school_id != null && { school_id: data.school_id }),
+      ...(data.class_id != null && { class_id: data.class_id }),
+    }),
 };

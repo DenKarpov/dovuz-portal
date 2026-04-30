@@ -17,21 +17,25 @@ export interface StudentRatingResponse {
 
 export const studentsApi = {
   getRatings: (schoolId: number | undefined, pageNumber: number, pageSize: number, classId?: number) =>
-    api.get<PageResponse<StudentRatingResponse>>('/students/rating', {
-      params: {
-        ...(schoolId != null ? { schoolId } : {}),
-        pageNumber,
-        pageSize,
-        ...(classId ? { classId } : {}),
-      },
-    }),
+      api.get<PageResponse<StudentRatingResponse>>('/students/rating', {
+        params: {
+          ...(schoolId != null ? { schoolId } : {}),
+          pageNumber,
+          pageSize,
+          ...(classId ? { classId } : {}),
+        },
+      }),
 
   getLagging: (schoolId: number | undefined, pageNumber: number, pageSize: number) =>
-    api.get<PageResponse<StudentRatingResponse>>('/students/lagging', {
-      params: {
-        ...(schoolId != null ? { schoolId } : {}),
-        pageNumber,
-        pageSize,
-      },
-    }),
+      api.get<PageResponse<StudentRatingResponse>>('/students/lagging', {
+        params: {
+          ...(schoolId != null ? { schoolId } : {}),
+          pageNumber,
+          pageSize,
+        },
+      }),
+
+  /** Снять отметку отстающего с ученика */
+  unmarkLagging: (accountId: number) =>
+      api.post(`/students/lagging/${accountId}/unmark`),
 };

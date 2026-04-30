@@ -6,8 +6,7 @@ export interface IdeaBankEntryResponse {
   title: string;
   description?: string;
   comments?: string;
-  school_id: number;
-  school_name: string;
+  score: number;
   created_by_nickname: string;
   source_project_id?: number;
   created_at: string;
@@ -18,17 +17,23 @@ export const ideaBankApi = {
     title: string;
     description?: string;
     comments?: string;
-    school_id: number;
+    score?: number;
     source_project_id?: number;
   }) => api.post<IdeaBankEntryResponse>('/idea-bank', data),
 
-  getBySchool: (schoolId: number, pageNumber: number, pageSize: number, query?: string) =>
-    api.get<PageResponse<IdeaBankEntryResponse>>(`/idea-bank/school/${schoolId}`, {
-      params: { pageNumber, pageSize, ...(query ? { query } : {}) },
+  getAll: (pageNumber: number, pageSize: number, query?: string, sortByScore = true) =>
+    api.get<PageResponse<IdeaBankEntryResponse>>(`/idea-bank`, {
+      params: { pageNumber, pageSize, sortByScore, ...(query ? { query } : {}) },
     }),
 
-  update: (id: number, data: { title?: string; description?: string; comments?: string }) =>
+  getById: (id: number) =>
+    api.get<IdeaBankEntryResponse>(`/idea-bank/${id}`),
+
+  update: (id: number, data: { title?: string; description?: string; comments?: string; score?: number }) =>
     api.patch<IdeaBankEntryResponse>(`/idea-bank/${id}`, data),
+
+  assignToGroup: (id: number, groupId: number) =>
+    api.post<IdeaBankEntryResponse>(`/idea-bank/${id}/assign-to-group`, { group_id: groupId }),
 
   delete: (id: number) => api.delete(`/idea-bank/${id}`),
 };
