@@ -1179,6 +1179,7 @@ export const CoursesTab: React.FC = () => {
   const [criteriaModalOpen, setCriteriaModalOpen] = useState(false);
   const [savingCriteria, setSavingCriteria] = useState(false);
   const [reviewCriteriaScores, setReviewCriteriaScores] = useState<Record<number, number>>({});
+  const [laggingFlagSaving, setLaggingFlagSaving] = useState(false);
 
   useEffect(() => {
     schoolsApi.getAll().then(r => setSchools(r.data)).catch(() => {});
@@ -1630,9 +1631,14 @@ export const CoursesTab: React.FC = () => {
                         <ChevronRight className="size-4 text-slate-300" />
                       </div>
                     </div>
-                    {!c.is_active && (
-                      <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 bg-red-50 text-red-500 rounded border border-red-100">неактивен</span>
-                    )}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {!c.is_active && (
+                        <span className="inline-block text-[10px] px-1.5 py-0.5 bg-red-50 text-red-500 rounded border border-red-100">неактивен</span>
+                      )}
+                      {c.for_lagging_students && (
+                        <span className="inline-block text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-100">отстающие</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1699,6 +1705,35 @@ export const CoursesTab: React.FC = () => {
                         </button>
                       </div>
                     )}
+                    <label className="flex items-start gap-3 mt-4 p-3 rounded-xl border border-amber-100 bg-amber-50/60 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-400"
+                        checked={!!activeCourse.for_lagging_students}
+                        disabled={laggingFlagSaving}
+                        onChange={async (e) => {
+                          if (!activeCourse) return;
+                          setLaggingFlagSaving(true);
+                          try {
+                            await coursesApi.patchForLaggingStudents(activeCourse.id, e.target.checked);
+                            const next = { ...activeCourse, for_lagging_students: e.target.checked };
+                            setActiveCourse(next);
+                            await loadAllCourses();
+                            toast.success(e.target.checked ? 'Включён режим курса для отстающих' : 'Режим отключён');
+                          } catch (err: any) {
+                            toast.error(err.response?.data?.message ?? 'Ошибка сохранения');
+                          } finally {
+                            setLaggingFlagSaving(false);
+                          }
+                        }}
+                      />
+                      <span className="text-xs text-amber-950">
+                        <span className="font-semibold block">Курс для отстающих</span>
+                        <span className="text-amber-900/90 mt-1 block leading-relaxed">
+                          Ученики с отметкой «отстающий» из привязанных школ автоматически получают здесь группу после проверки дедлайнов и сразу при включении опции или привязке школы.
+                        </span>
+                      </span>
+                    </label>
                   </div>
                 </div>
               </div>

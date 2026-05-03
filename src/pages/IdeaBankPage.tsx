@@ -22,6 +22,8 @@ export const IdeaBankPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [minScore, setMinScore] = useState<number | ''>('');
+  const [maxScore, setMaxScore] = useState<number | ''>('');
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingIdea, setEditingIdea] = useState<IdeaBankEntryResponse | null>(null);
@@ -32,12 +34,11 @@ export const IdeaBankPage: React.FC = () => {
 
   // assign-to-group modal
   const [assignIdea, setAssignIdea] = useState<IdeaBankEntryResponse | null>(null);
-  const [assignTab, setAssignTab] = useState<'pick' | 'create'>('pick');
+  const [detailsIdea, setDetailsIdea] = useState<IdeaBankEntryResponse | null>(null);
   const [myCourses, setMyCourses] = useState<CourseModeratorResponse[]>([]);
   const [assignCourseId, setAssignCourseId] = useState<number | ''>('');
   const [courseSchools, setCourseSchools] = useState<Array<{ id: number; name: string }>>([]);
   const [courseGroups, setCourseGroups] = useState<CourseGroupResponse[]>([]);
-  const [assignGroupId, setAssignGroupId] = useState<number | ''>('');
   const [assigning, setAssigning] = useState(false);
 
   // create group (same as hearings)
@@ -53,11 +54,9 @@ export const IdeaBankPage: React.FC = () => {
 
   const openAssign = (idea: IdeaBankEntryResponse) => {
     setAssignIdea(idea);
-    setAssignTab('pick');
     setAssignCourseId('');
     setCourseSchools([]);
     setCourseGroups([]);
-    setAssignGroupId('');
     setGroupSchoolId('');
     setSchoolStudents([]);
     setSelectedStudents([]);
@@ -108,7 +107,10 @@ export const IdeaBankPage: React.FC = () => {
         school_id: Number(groupSchoolId),
         student_ids: selectedStudents,
       });
-      await handleAssignToGroup(r.data.id);
+      await ideaBankApi.assignToGroup(assignIdea.id, r.data.id);
+      toast.success('Создана группа и тема назначена');
+      setAssignIdea(null);
+      fetchIdeas(page);
     } catch (e: any) {
       toast.error(e.response?.data?.message ?? 'Ошибка создания группы');
     } finally {
@@ -124,12 +126,19 @@ export const IdeaBankPage: React.FC = () => {
   const fetchIdeas = useCallback(async (p = 0) => {
     setLoading(true);
     try {
-      const res = await ideaBankApi.getAll(p, 10, debouncedSearch || undefined, true);
+      const res = await ideaBankApi.getAll(
+        p,
+        10,
+        debouncedSearch || undefined,
+        true,
+        minScore === '' ? undefined : Number(minScore),
+        maxScore === '' ? undefined : Number(maxScore),
+      );
       setIdeas(res.data.content);
       setTotalPages(res.data.total_pages);
       setPage(p);
     } catch { toast.error('Ошибка загрузки идей'); } finally { setLoading(false); }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, minScore, maxScore]);
 
   useEffect(() => { fetchIdeas(0); }, [fetchIdeas]);
 
@@ -191,18 +200,18 @@ export const IdeaBankPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="size-11 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200">
-          <Lightbulb className="size-5 text-white" />
+    <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="flex items-center gap-4 mb-8">
+        <div className="size-14 shrink-0 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200">
+          <Lightbulb className="size-7 text-white" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-foreground">Банк идей</h1>
-          <p className="text-sm text-muted-foreground">Архив тем проектов для повторного использования</p>
+          <p className="text-muted-foreground text-base mt-0.5">Архив тем проектов для повторного использования</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
@@ -210,6 +219,24 @@ export const IdeaBankPage: React.FC = () => {
             onChange={e => setSearch(e.target.value)}
             placeholder="Поиск по названию..."
             className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            type="number"
+            min={0}
+            value={minScore}
+            onChange={e => setMinScore(e.target.value === '' ? '' : Number(e.target.value))}
+            placeholder="Мин. баллы"
+            className="w-full px-3 py-2.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <input
+            type="number"
+            min={0}
+            value={maxScore}
+            onChange={e => setMaxScore(e.target.value === '' ? '' : Number(e.target.value))}
+            placeholder="Макс. баллы"
+            className="w-full px-3 py-2.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
         <div className="flex items-center">
@@ -234,60 +261,30 @@ export const IdeaBankPage: React.FC = () => {
               <Lightbulb className="size-10 mx-auto mb-3 opacity-40" />
               <p className="text-sm">Банк идей пуст</p>
             </div>
-          ) : ideas.map(idea => (
-            <div key={idea.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-foreground">{idea.title}</h3>
-                  {idea.description && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{idea.description}</p>
-                  )}
-                  {idea.comments && (
-                    <div className="flex items-start gap-1.5 mt-2 text-xs text-muted-foreground">
-                      <MessageSquare className="size-3.5 mt-0.5 shrink-0" />
-                      <span className="line-clamp-2">{idea.comments}</span>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {ideas.map(idea => (
+                <button
+                  key={idea.id}
+                  type="button"
+                  onClick={() => setDetailsIdea(idea)}
+                  className="text-left w-full rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base font-semibold text-foreground leading-snug">{idea.title}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        @{idea.created_by_nickname} · {new Date(idea.created_at).toLocaleDateString('ru-RU')}
+                      </p>
                     </div>
-                  )}
-                  <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
-                    <span>Автор: @{idea.created_by_nickname}</span>
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
                       {idea.score ?? 0} баллов
                     </span>
-                    <span>{new Date(idea.created_at).toLocaleDateString('ru-RU')}</span>
-                    {idea.source_project_id && (
-                      <button
-                        onClick={() => navigate(`/projects/${idea.source_project_id}`)}
-                        className="flex items-center gap-0.5 text-primary hover:underline"
-                      >
-                        <ExternalLink className="size-3" /> Проект #{idea.source_project_id}
-                      </button>
-                    )}
                   </div>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => openAssign(idea)}
-                    className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
-                    title="Передать группе"
-                  >
-                    <Send className="size-3.5" />
-                  </button>
-                  <button
-                    onClick={() => openEdit(idea)}
-                    className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
-                  >
-                    <Edit2 className="size-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(idea.id)}
-                    className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </div>
-              </div>
+                </button>
+              ))}
             </div>
-          ))}
+          )}
 
           {totalPages > 1 && (
             <Pagination currentPage={page} totalPages={totalPages} onPageChange={fetchIdeas} />
@@ -396,64 +393,9 @@ export const IdeaBankPage: React.FC = () => {
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                 </div>
               </div>
-              <div className="md:col-span-1 flex items-end">
-                <div className="flex gap-1 bg-muted p-1 rounded-xl w-full">
-                  <button
-                    type="button"
-                    onClick={() => setAssignTab('pick')}
-                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${assignTab === 'pick' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    Выбрать
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAssignTab('create')}
-                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${assignTab === 'create' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    Создать
-                  </button>
-                </div>
-              </div>
             </div>
 
-            {assignTab === 'pick' ? (
-              <div className="space-y-3">
-                <label className="block text-xs font-medium text-muted-foreground">Группа</label>
-                <div className="max-h-64 overflow-y-auto border border-border rounded-xl divide-y divide-border">
-                  {courseGroups.map(g => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => { setAssignGroupId(g.id); }}
-                      className={`w-full text-left px-3 py-2 hover:bg-muted/50 transition ${assignGroupId === g.id ? 'bg-primary/5' : ''}`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{g.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">{g.school_name} · {g.members.length} чел.</p>
-                        </div>
-                        <Users className="size-4 text-muted-foreground shrink-0" />
-                      </div>
-                    </button>
-                  ))}
-                  {assignCourseId && courseGroups.length === 0 && (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">Групп пока нет</p>
-                  )}
-                  {!assignCourseId && (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">Выберите курс</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => assignGroupId && handleAssignToGroup(Number(assignGroupId))}
-                  disabled={!assignGroupId || assigning}
-                  className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
-                >
-                  {assigning ? '...' : 'Передать выбранной группе'}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
+            <div className="space-y-3">
                 <label className="block text-xs font-medium text-muted-foreground">Школа группы</label>
                 <div className="relative">
                   <select
@@ -473,7 +415,11 @@ export const IdeaBankPage: React.FC = () => {
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-2">Ученики ({selectedStudents.length} выбрано)</p>
                   <div className="max-h-64 overflow-y-auto border border-border rounded-xl divide-y divide-border">
-                    {schoolStudents.map(st => (
+                    {(() => {
+                      const busyIds = new Set<number>();
+                      courseGroups.forEach(g => g.members.forEach(m => busyIds.add(m.account_id)));
+                      return schoolStudents.filter(s => !busyIds.has(s.id));
+                    })().map(st => (
                       <label key={st.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 cursor-pointer">
                         <input
                           type="checkbox"
@@ -499,13 +445,76 @@ export const IdeaBankPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleCreateGroupFromIdea}
-                  disabled={!assignCourseId || !groupSchoolId || selectedStudents.length === 0 || creatingGroup}
+                  disabled={!assignCourseId || !groupSchoolId || selectedStudents.length === 0 || creatingGroup || assigning}
                   className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
                 >
                   {creatingGroup ? '...' : 'Создать группу и передать тему'}
                 </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Idea details modal */}
+      {detailsIdea && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDetailsIdea(null)}>
+          <div className="bg-card rounded-2xl shadow-xl border border-border w-full max-w-2xl p-6 mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-foreground truncate">{detailsIdea.title}</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  @{detailsIdea.created_by_nickname} · {new Date(detailsIdea.created_at).toLocaleDateString('ru-RU')} · {detailsIdea.score ?? 0} баллов
+                </p>
+              </div>
+              <button onClick={() => setDetailsIdea(null)} className="p-1 rounded-lg hover:bg-muted transition">
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {detailsIdea.description && (
+              <div className="mb-4">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Описание</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{detailsIdea.description}</p>
               </div>
             )}
+            {detailsIdea.comments && (
+              <div className="mb-4">
+                <p className="text-xs font-medium text-muted-foreground mb-1">История / комментарии</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{detailsIdea.comments}</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-2">
+              {detailsIdea.source_project_id ? (
+                <button
+                  onClick={() => navigate(`/projects/${detailsIdea.source_project_id}`)}
+                  className="flex items-center gap-1 text-sm text-primary hover:underline"
+                >
+                  <ExternalLink className="size-4" /> Проект #{detailsIdea.source_project_id}
+                </button>
+              ) : <span />}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { openAssign(detailsIdea); setDetailsIdea(null); }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
+                >
+                  <Send className="size-4" />
+                  Назначить
+                </button>
+                <button
+                  onClick={() => openEdit(detailsIdea)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold border border-border hover:bg-muted transition"
+                >
+                  Редактировать
+                </button>
+                <button
+                  onClick={() => handleDelete(detailsIdea.id)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-red-600 border border-border hover:bg-red-50 transition"
+                >
+                  Удалить
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

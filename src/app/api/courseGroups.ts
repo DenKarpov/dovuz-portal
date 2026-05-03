@@ -46,13 +46,9 @@ export const courseGroupsApi = {
   getMyGroup: (courseId: number) =>
     api.get<CourseGroupResponse | null>(`/courses/${courseId}/groups/my`),
 
-  /** Ученик создаёт свою группу (выбирает тему) */
-  createMyGroup: (courseId: number, data: { title: string; description?: string }) =>
+  /** Ученик создаёт свою группу (выбирает тему), опционально — одноклассники */
+  createMyGroup: (courseId: number, data: { title: string; description?: string; classmate_account_ids?: number[] }) =>
     api.post<CourseGroupResponse>(`/courses/${courseId}/groups/my`, data),
-
-  /** Ученик вступает в существующую группу */
-  joinGroup: (courseId: number, groupId: number) =>
-    api.post<CourseGroupResponse>(`/courses/${courseId}/groups/${groupId}/join`),
 
   /** Сменить название/описание темы своей группы */
   updateMyGroupTopic: (courseId: number, groupId: number, data: { title?: string; description?: string }) =>

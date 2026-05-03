@@ -12,6 +12,8 @@ export interface CourseShortResponse {
     description: string;
     schools: CourseSchoolRef[];
     is_active: boolean;
+    /** Автогруппы для учеников с отметкой отстающий по школам курса */
+    for_lagging_students?: boolean;
     lesson_count: number;
     created_at: string;
 }
@@ -44,6 +46,7 @@ export interface CourseResponse {
     description: string;
     schools: CourseSchoolRef[];
     is_active: boolean;
+    for_lagging_students?: boolean;
     created_at: string;
     lessons: CourseLessonResponse[];
 }
@@ -284,6 +287,11 @@ export const coursesApi = {
 
     adminToggleActive: (courseId: number) =>
         api.patch<CourseResponse>(`/courses/${courseId}/toggle-active`),
+
+    patchForLaggingStudents: (courseId: number, forLaggingStudents: boolean) =>
+        api.patch<CourseResponse>(`/courses/${courseId}/for-lagging-students`, {
+            for_lagging_students: forLaggingStudents,
+        }),
 
     adminAddLesson: (courseId: number, data: CreateLessonRequest) =>
         api.post<CourseLessonResponse>(`/courses/${courseId}/lessons`, {

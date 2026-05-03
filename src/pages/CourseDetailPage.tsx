@@ -17,6 +17,7 @@ import {
   type CourseSummaryResponse,
 } from '../app/api/courses';
 import { courseGroupsApi, type CourseGroupResponse } from '../app/api/courseGroups';
+import { accountsApi, type GetAllUserResponse } from '../app/api/accounts';
 import { filesApi } from '../app/api/files';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -58,6 +59,8 @@ export const CourseDetailPage: React.FC = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   /** Сумма баллов по рецензиям слушаний (групповые этапы) */
   const [hearingPointsTotal, setHearingPointsTotal] = useState(0);
+  /** Кол-во принятых этапов слушаний (для прогресса) */
+  const [hearingAcceptedCount, setHearingAcceptedCount] = useState(0);
 
   const fetchData = useCallback(async () => {
     if (!courseId) return;
@@ -90,6 +93,7 @@ export const CourseDetailPage: React.FC = () => {
       });
 
       let hp = 0;
+      let hearingAccepted = 0;
       try {
         const gr = await courseGroupsApi.getMyGroup(Number(courseId));
         const gid = gr.data?.id;
@@ -97,12 +101,16 @@ export const CourseDetailPage: React.FC = () => {
           for (const hl of courseRes.data.lessons.filter(l => l.category === 'HEARING')) {
             try {
               const hr = await coursesApi.getMyHearingSubmission(hl.id, gid);
-              if (hr.data) hp += sumHearingReviewGrades(hr.data);
+              if (hr.data) {
+                hp += sumHearingReviewGrades(hr.data);
+                if (hr.data.status === 'ACCEPTED') hearingAccepted += 1;
+              }
             } catch { /* нет отправки */ }
           }
         }
       } catch { /* нет группы */ }
       setHearingPointsTotal(hp);
+      setHearingAcceptedCount(hearingAccepted);
 
       const acceptedRegular = (subsRes.data ?? []).filter(s => {
         const les = courseRes.data.lessons.find(x => x.id === s.lesson_id);
@@ -170,17 +178,20 @@ export const CourseDetailPage: React.FC = () => {
   }
 
   const regularLessons = course.lessons.filter(l => l.category !== 'HEARING');
+  const hearingLessons = course.lessons.filter(l => l.category === 'HEARING');
   const lessonMaxPoints = (l: CourseLessonResponse) => {
     const lc = lessonCriteria.get(l.id);
     return lc && lc.length > 0 ? lc.reduce((s, c) => s + c.max_points, 0) : l.max_score;
   };
 
-  const completedCount = regularLessons.filter(l => submissions.get(l.id)?.status === 'ACCEPTED').length;
+  const completedRegular = regularLessons.filter(l => submissions.get(l.id)?.status === 'ACCEPTED').length;
+  const completedCount = completedRegular + hearingAcceptedCount;
   const lessonScoreSum = Array.from(submissions.values()).reduce((s, v) => s + (v.score ?? 0), 0);
   const totalScore = lessonScoreSum + hearingPointsTotal;
   const maxPossible = course.lessons.reduce((sum, l) => sum + lessonMaxPoints(l), 0);
-  const progressPct = regularLessons.length > 0 ? Math.round((completedCount / regularLessons.length) * 100) : 0;
-  const isComplete = completedCount === regularLessons.length && regularLessons.length > 0;
+  const totalSteps = course.lessons.length;
+  const progressPct = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+  const isComplete = totalSteps > 0 && completedCount === totalSteps;
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 min-h-[calc(100vh-5rem)] bg-background">
@@ -240,7 +251,7 @@ export const CourseDetailPage: React.FC = () => {
             transition={{ type: 'spring', stiffness: 400, damping: 10 }}
           >
             <div className="size-8 bg-primary/10 rounded-lg flex items-center justify-center"><BookOpenCheck className="size-4 text-primary" /></div>
-            <div><p className="text-xs text-muted-foreground">Прогресс</p><p className="text-sm font-semibold text-foreground">{completedCount}/{regularLessons.length} уроков</p></div>
+            <div><p className="text-xs text-muted-foreground">Прогресс</p><p className="text-sm font-semibold text-foreground">{completedCount}/{totalSteps} этапов</p></div>
           </motion.div>
           <motion.div
             className="flex items-center gap-2 px-4 py-2 bg-card rounded-xl border border-border cursor-default"
@@ -617,12 +628,15 @@ interface HearingsTabProps {
 }
 
 const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModeratorOnly }) => {
+  const { user } = useAuth();
   const [myGroup, setMyGroup] = useState<CourseGroupResponse | null>(null);
   const [allGroups, setAllGroups] = useState<CourseGroupResponse[]>([]);
   const [studentTopicTitle, setStudentTopicTitle] = useState('');
   const [studentTopicDesc, setStudentTopicDesc] = useState('');
-  const [joiningGroupId, setJoiningGroupId] = useState<number | null>(null);
   const [creatingMyGroup, setCreatingMyGroup] = useState(false);
+  const [classPeers, setClassPeers] = useState<GetAllUserResponse[]>([]);
+  const [selectedClassmateIds, setSelectedClassmateIds] = useState<number[]>([]);
+  const [peerHint, setPeerHint] = useState<string | null>(null);
   const [editingMyTopic, setEditingMyTopic] = useState(false);
   const [editTopicTitle, setEditTopicTitle] = useState('');
   const [editTopicDesc, setEditTopicDesc] = useState('');
@@ -722,6 +736,40 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
+    if (isModeratorOnly || !user?.nickname) return;
+    let cancelled = false;
+    accountsApi.getAccount(user.nickname).then(res => {
+      const cid = res.data.classId;
+      if (cid == null) {
+        if (!cancelled) {
+          setClassPeers([]);
+          setPeerHint('Укажите класс в профиле, чтобы пригласить одноклассников в группу.');
+        }
+        return;
+      }
+      accountsApi.getByClass(cid, 0, 500).then(r2 => {
+        if (cancelled) return;
+        const peers = (r2.data.content ?? []).filter(
+          u => u.role === 'Пользователь' && u.nickname !== user.nickname,
+        );
+        setClassPeers(peers);
+        setPeerHint(peers.length === 0 ? 'В классе нет других учеников в системе.' : null);
+      }).catch(() => {
+        if (!cancelled) {
+          setClassPeers([]);
+          setPeerHint(null);
+        }
+      });
+    }).catch(() => {
+      if (!cancelled) {
+        setClassPeers([]);
+        setPeerHint(null);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [isModeratorOnly, user?.nickname]);
+
+  useEffect(() => {
     // сброс выбранной работы при смене этапа
     setSelectedSubmissionId(null);
   }, [activeHearing?.id]);
@@ -740,8 +788,13 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
     if (!t) return toast.error('Введите тему');
     setCreatingMyGroup(true);
     try {
-      const r = await courseGroupsApi.createMyGroup(courseId, { title: t, ...(studentTopicDesc.trim() ? { description: studentTopicDesc.trim() } : {}) });
+      const r = await courseGroupsApi.createMyGroup(courseId, {
+        title: t,
+        ...(studentTopicDesc.trim() ? { description: studentTopicDesc.trim() } : {}),
+        ...(selectedClassmateIds.length > 0 ? { classmate_account_ids: selectedClassmateIds } : {}),
+      });
       setMyGroup(r.data);
+      setSelectedClassmateIds([]);
       toast.success('Тема сохранена');
       await fetchData();
     } catch (err: any) {
@@ -753,25 +806,6 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
       toast.error(msg);
     } finally {
       setCreatingMyGroup(false);
-    }
-  };
-
-  const handleJoinGroup = async (groupId: number) => {
-    setJoiningGroupId(groupId);
-    try {
-      const r = await courseGroupsApi.joinGroup(courseId, groupId);
-      setMyGroup(r.data);
-      toast.success('Вы вступили в группу');
-      await fetchData();
-    } catch (err: any) {
-      const d = err.response?.data;
-      const msg =
-        typeof d === 'string'
-          ? d
-          : d?.message ?? d?.error ?? (Array.isArray(d?.errors) ? String(d.errors[0]) : null) ?? 'Ошибка вступления';
-      toast.error(msg);
-    } finally {
-      setJoiningGroupId(null);
     }
   };
 
@@ -1123,6 +1157,30 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
                   rows={2}
                   className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-card focus:ring-2 focus:ring-primary outline-none resize-none"
                 />
+                {classPeers.length > 0 && (
+                  <div className="rounded-xl border border-border bg-muted/15 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground">Одноклассники в группу ({selectedClassmateIds.length} выбрано)</p>
+                    <div className="max-h-40 overflow-y-auto space-y-1.5">
+                      {classPeers.map(p => (
+                        <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/40 rounded-lg px-2 py-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedClassmateIds.includes(p.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedClassmateIds(x => [...x, p.id]);
+                              else setSelectedClassmateIds(x => x.filter(id => id !== p.id));
+                            }}
+                          />
+                          <span>{p.last_name ?? ''} {p.first_name ?? ''}</span>
+                          <span className="text-xs text-muted-foreground ml-auto">@{p.nickname}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {peerHint && classPeers.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">{peerHint}</p>
+                )}
                 <button
                   type="button"
                   onClick={handleCreateMyGroup}
@@ -1133,29 +1191,7 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
                 </button>
               </div>
 
-              {allGroups.length > 0 && (
-                <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground">Или выбрать группу</p>
-                  <div className="space-y-2 max-h-56 overflow-y-auto">
-                    {allGroups.map((g) => (
-                      <div key={g.id} className="flex items-center justify-between gap-3 border border-border rounded-xl px-3 py-2 bg-card/60">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{g.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">{g.school_name} · {g.members.length} чел.</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleJoinGroup(g.id)}
-                          disabled={joiningGroupId === g.id}
-                          className="shrink-0 px-3 py-2 rounded-xl border border-primary/20 bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/15 disabled:opacity-50"
-                        >
-                          {joiningGroupId === g.id ? '...' : 'Вступить'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Вступление в существующие группы убрано по требованиям */}
             </div>
           )}
         </div>

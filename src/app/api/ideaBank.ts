@@ -21,9 +21,23 @@ export const ideaBankApi = {
     source_project_id?: number;
   }) => api.post<IdeaBankEntryResponse>('/idea-bank', data),
 
-  getAll: (pageNumber: number, pageSize: number, query?: string, sortByScore = true) =>
+  getAll: (
+    pageNumber: number,
+    pageSize: number,
+    query?: string,
+    sortByScore = true,
+    minScore?: number,
+    maxScore?: number,
+  ) =>
     api.get<PageResponse<IdeaBankEntryResponse>>(`/idea-bank`, {
-      params: { pageNumber, pageSize, sortByScore, ...(query ? { query } : {}) },
+      params: {
+        pageNumber,
+        pageSize,
+        sortByScore,
+        ...(query ? { query } : {}),
+        ...(minScore !== undefined ? { minScore } : {}),
+        ...(maxScore !== undefined ? { maxScore } : {}),
+      },
     }),
 
   getById: (id: number) =>
@@ -34,6 +48,9 @@ export const ideaBankApi = {
 
   assignToGroup: (id: number, groupId: number) =>
     api.post<IdeaBankEntryResponse>(`/idea-bank/${id}/assign-to-group`, { group_id: groupId }),
+
+  assignToStudent: (id: number, courseId: number, studentId: number) =>
+    api.post<IdeaBankEntryResponse>(`/idea-bank/${id}/assign-to-student`, { course_id: courseId, student_id: studentId }),
 
   delete: (id: number) => api.delete(`/idea-bank/${id}`),
 };
