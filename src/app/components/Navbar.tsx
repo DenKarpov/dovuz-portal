@@ -43,8 +43,6 @@ export const Navbar: React.FC = () => {
   };
 
   const links = [
-    { to: '/', label: '🏠 Главная', icon: <Home className="size-4.5" /> },
-    { to: '/news', label: '📰 Новости', icon: <Newspaper className="size-4.5" /> },
     { to: '/directions', label: '📚 Материалы', icon: <BookOpen className="size-4.5" /> },
     ...(!isModerator && user ? [
       { to: '/courses', label: '📖 Курсы', icon: <BookOpenCheck className="size-4.5" /> },
@@ -60,7 +58,7 @@ export const Navbar: React.FC = () => {
       { to: '/moderator/students', label: '📊 Рейтинг', icon: <Award className="size-4.5" /> },
     ] : []),
     ...(isAdmin ? [
-      { to: '/admin', label: '⚙️ Администратор', icon: <Shield className="size-4.5" /> },
+      { to: '/admin', label: '⚙️ Управление', icon: <Shield className="size-4.5" /> },
     ] : []),
   ];
 
@@ -87,8 +85,8 @@ export const Navbar: React.FC = () => {
                 <GraduationCap className="size-5 text-white" />
               </div>
               <div className="hidden sm:block">
-                <p className="text-base font-bold text-slate-800 dark:text-foreground leading-none">МосПолитех</p>
-                <p className="text-xs text-slate-400 dark:text-muted-foreground leading-none mt-0.5">Довузовская подготовка</p>
+                <p className="text-base font-bold text-slate-800 dark:text-foreground leading-none">Инженерная школа</p>
+                <p className="text-xs text-slate-400 dark:text-muted-foreground leading-none mt-0.5">Московский Политех</p>
               </div>
             </Link>
 

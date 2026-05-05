@@ -21,52 +21,54 @@ import { CoursesPage } from './pages/CoursesPage';
 import { CourseDetailPage } from './pages/CourseDetailPage';
 import { IdeaBankPage } from './pages/IdeaBankPage';
 import { StudentRatingPage } from './pages/StudentRatingPage';
+import { AdminCourseWorksPage } from './pages/AdminCourseWorksPage';
 
 export default function App() {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="light"
-      enableSystem={false}
-      themes={['light', 'dark', 'colorblind']}
-      value={{ colorblind: 'theme-colorblind' }}
-    >
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<HomePage />} />
-              <Route path="news" element={<NewsPage />} />
-              <Route path="news/:id" element={<NewsPublicationPage />} />
-              <Route path="directions" element={<DirectionsPage />} />
-              <Route path="directions/:dirId/subjects" element={<SubjectsPage />} />
-              <Route path="subjects/:subjectId/topics" element={<TopicsPage />} />
-              <Route path="topics/:topicId/publications" element={<PublicationsListPage />} />
-              <Route path="publications/:id" element={<PublicationDetailPage />} />
-              {/* Старые маршруты проектов → редирект на курсы */}
-              <Route path="projects" element={<Navigate to="/courses" replace />} />
-              <Route path="projects/:id" element={<Navigate to="/courses" replace />} />
-              <Route path="moderator/projects" element={<Navigate to="/courses" replace />} />
-              <Route path="moderator/projects/manage" element={<Navigate to="/courses" replace />} />
-              <Route path="moderator/idea-bank" element={<IdeaBankPage />} />
-              <Route path="moderator/students" element={<StudentRatingPage />} />
-              <Route path="moderator/courses/reviews" element={<Navigate to="/courses" replace />} />
-              <Route path="moderator/courses/manage" element={<Navigate to="/courses" replace />} />
-              <Route path="admin/projects" element={<Navigate to="/courses" replace />} />
-              {/* Курсы проектной деятельности */}
-              <Route path="courses" element={<CoursesPage />} />
-              <Route path="courses/:courseId" element={<CourseDetailPage />} />
-              <Route path="profile/:nickname" element={<ProfilePage />} />
-              <Route path="profile/edit" element={<EditProfilePage />} />
-              <Route path="admin" element={<AdminPage />} />
-              <Route path="admin/import-export" element={<ImportExportPage />} />
-              <Route path="*" element={<Navigate to="/news" replace />} />
-            </Route>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </ThemeProvider>
+      <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          themes={['light', 'dark', 'colorblind']}
+          value={{ colorblind: 'theme-colorblind' }}
+      >
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<HomePage />} />
+                <Route path="news" element={<NewsPage />} />
+                <Route path="news/:id" element={<NewsPublicationPage />} />
+                <Route path="directions" element={<DirectionsPage />} />
+                <Route path="directions/:dirId/subjects" element={<SubjectsPage />} />
+                <Route path="subjects/:subjectId/topics" element={<TopicsPage />} />
+                <Route path="topics/:topicId/publications" element={<PublicationsListPage />} />
+                <Route path="publications/:id" element={<PublicationDetailPage />} />
+                {/* Старые маршруты проектов → редирект на курсы */}
+                <Route path="projects" element={<Navigate to="/courses" replace />} />
+                <Route path="projects/:id" element={<Navigate to="/courses" replace />} />
+                <Route path="moderator/projects" element={<Navigate to="/courses" replace />} />
+                <Route path="moderator/projects/manage" element={<Navigate to="/courses" replace />} />
+                <Route path="moderator/idea-bank" element={<IdeaBankPage />} />
+                <Route path="moderator/students" element={<StudentRatingPage />} />
+                <Route path="moderator/courses/reviews" element={<Navigate to="/courses" replace />} />
+                <Route path="moderator/courses/manage" element={<Navigate to="/courses" replace />} />
+                <Route path="admin/projects" element={<Navigate to="/courses" replace />} />
+                {/* Курсы проектной деятельности */}
+                <Route path="courses" element={<CoursesPage />} />
+                <Route path="courses/:courseId" element={<CourseDetailPage />} />
+                <Route path="profile/:nickname" element={<ProfilePage />} />
+                <Route path="profile/edit" element={<EditProfilePage />} />
+                <Route path="admin" element={<AdminPage />} />
+                <Route path="admin/courses/:courseId/defense" element={<AdminCourseWorksPage />} />
+                <Route path="admin/import-export" element={<ImportExportPage />} />
+                <Route path="*" element={<Navigate to="/news" replace />} />
+              </Route>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </ThemeProvider>
   );
 }

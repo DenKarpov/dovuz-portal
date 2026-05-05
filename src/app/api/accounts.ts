@@ -41,6 +41,7 @@ export interface GetAllUserResponse {
   role: string;
   is_banned: boolean;
   is_lagging: boolean;
+  created_at?: string;
 }
 
 export interface StatusAccountResponse {
@@ -71,43 +72,55 @@ export interface CourseProgressResponse {
 
 export const accountsApi = {
   getAllUsers: (pageNumber: number, pageSize: number) =>
-    api.get<PageResponse<GetAllUserResponse>>('/accounts', {
-      params: { pageNumber, pageSize },
-    }),
+      api.get<PageResponse<GetAllUserResponse>>('/accounts', {
+        params: { pageNumber, pageSize },
+      }),
 
   banUser: (id: number) =>
-    api.post<StatusAccountResponse>(`/accounts/${id}/ban`),
+      api.post<StatusAccountResponse>(`/accounts/${id}/ban`),
 
   unbanUser: (id: number) =>
-    api.post<StatusAccountResponse>(`/accounts/${id}/unban`),
+      api.post<StatusAccountResponse>(`/accounts/${id}/unban`),
+
+  deleteUser: (id: number) =>
+      api.delete<void>(`/accounts/${id}`),
+
+  adminUpdateUser: (id: number, data: {
+    first_name?: string;
+    last_name?: string;
+    middle_name?: string;
+    school_id?: number | null;
+    class_id?: number | null;
+  }) =>
+      api.patch<GetAllUserResponse>(`/accounts/${id}/profile`, data),
 
   getAccount: (nickname: string) =>
-    api.get<AccountResponse>(`/accounts/${nickname}`),
+      api.get<AccountResponse>(`/accounts/${nickname}`),
 
   saveInfo: (formData: FormData) =>
-    api.put<AccountResponse>('/accounts', formData),
+      api.put<AccountResponse>('/accounts', formData),
 
   getBySchool: (schoolId: number, pageNumber: number, pageSize: number) =>
-    api.get<PageResponse<GetAllUserResponse>>(`/accounts/school/${schoolId}`, {
-      params: { pageNumber, pageSize },
-    }),
+      api.get<PageResponse<GetAllUserResponse>>(`/accounts/school/${schoolId}`, {
+        params: { pageNumber, pageSize },
+      }),
 
   getByClass: (classId: number, pageNumber: number, pageSize: number) =>
-    api.get<PageResponse<GetAllUserResponse>>(`/accounts/class/${classId}`, {
-      params: { pageNumber, pageSize },
-    }),
+      api.get<PageResponse<GetAllUserResponse>>(`/accounts/class/${classId}`, {
+        params: { pageNumber, pageSize },
+      }),
 
   updateRole: (id: number, roleId: number) =>
-    api.put<AccountUpdateRoleResponse>(`/accounts/${id}/role`, { role_id: roleId }),
+      api.put<AccountUpdateRoleResponse>(`/accounts/${id}/role`, { role_id: roleId }),
 
   getCourseProgress: (nickname: string) =>
-    api.get<CourseProgressResponse[]>(`/accounts/${nickname}/course-progress`),
+      api.get<CourseProgressResponse[]>(`/accounts/${nickname}/course-progress`),
 
   changePassword: (currentPassword: string, newPassword: string) =>
-    api.put<void>('/accounts/me/password', {
-      current_password: currentPassword,
-      new_password: newPassword,
-    }),
+      api.put<void>('/accounts/me/password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
 
   adminRegisterUser: (data: {
     email: string;
@@ -117,12 +130,12 @@ export const accountsApi = {
     school_id?: number;
     class_id?: number;
   }) =>
-    api.post<GetAllUserResponse>('/accounts/admin/register', {
-      email: data.email,
-      nickname: data.nickname,
-      password: data.password,
-      ...(data.role_id != null && { role_id: data.role_id }),
-      ...(data.school_id != null && { school_id: data.school_id }),
-      ...(data.class_id != null && { class_id: data.class_id }),
-    }),
+      api.post<GetAllUserResponse>('/accounts/admin/register', {
+        email: data.email,
+        nickname: data.nickname,
+        password: data.password,
+        ...(data.role_id != null && { role_id: data.role_id }),
+        ...(data.school_id != null && { school_id: data.school_id }),
+        ...(data.class_id != null && { class_id: data.class_id }),
+      }),
 };

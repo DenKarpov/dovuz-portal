@@ -13,8 +13,8 @@ export const Footer: React.FC = () => (
               <GraduationCap className="size-5 text-primary-foreground" />
             </div>
             <div>
-              <p className="text-foreground font-bold text-lg leading-none">МосПолитех</p>
-              <p className="text-muted-foreground text-xs mt-0.5">Довузовская подготовка</p>
+              <p className="text-foreground font-bold text-lg leading-none">Инженерная школа</p>
+              <p className="text-muted-foreground text-xs mt-0.5">Московский Политех</p>
             </div>
           </Link>
           <p className="text-muted-foreground leading-relaxed max-w-sm">
@@ -27,14 +27,14 @@ export const Footer: React.FC = () => (
           <ul className="space-y-2.5 text-sm">
             <li><Link to="/news" className="hover:text-foreground transition-colors">Новости</Link></li>
             <li><Link to="/directions" className="hover:text-foreground transition-colors">Учебные материалы</Link></li>
-            <li><Link to="/projects" className="hover:text-foreground transition-colors">Проекты</Link></li>
+            <li><Link to="/projects" className="hover:text-foreground transition-colors">Курсы</Link></li>
           </ul>
         </div>
 
         <div>
           <h4 className="text-foreground font-semibold mb-4">🔗 Ссылки</h4>
           <ul className="space-y-2.5 text-sm">
-            <li><a href="https://mospolytech.ru" target="_blank" rel="noreferrer" className="hover:text-foreground transition-colors">Сайт МосПолитеха</a></li>
+            <li><a href="https://mospolytech.ru" target="_blank" rel="noreferrer" className="hover:text-foreground transition-colors">Сайт Московского Политеха</a></li>
             <li>
               <a href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
                 <Send className="size-3.5 shrink-0" /> Telegram-бот
@@ -48,7 +48,7 @@ export const Footer: React.FC = () => (
 
       <div className="mt-12 pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} МосПолитех. Все права защищены.
+          © {new Date().getFullYear()} Московский Политех. Все права защищены.
         </p>
         <p className="text-sm text-muted-foreground/80">
           Сделано с 💜 для школьников

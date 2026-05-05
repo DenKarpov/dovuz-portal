@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import {
-    Upload, Download, FileSpreadsheet, Users, School, CheckCircle, Shield, GraduationCap
+    Upload, Download, FileSpreadsheet, Users, School, CheckCircle, Shield, GraduationCap, FileDown
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { importExportApi, downloadBlob } from '../app/api/importExport';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 
 type ImportTab = 'schools' | 'students' | 'moderators';
 
@@ -58,6 +59,51 @@ export const ImportExportPage: React.FC = () => {
     const [exportingStudents, setExportingStudents] = useState(false);
     const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
+    // Примеры данных для файлов-шаблонов
+    const downloadExampleSchools = () => {
+        const exampleData = [
+            ['Название школы'],
+            ['ГБОУ Школа "Свиблово"'],
+            ['ГБОУ Школа имени Маяковского'],
+            ['ГБОУ Школа № 1158'],
+            ['ГБОУ Школа № 1208'],
+            ['ГБОУ Школа № 1358'],
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(exampleData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Школы');
+        XLSX.writeFile(wb, `example_schools_import.xlsx`);
+        toast.success('Пример файла школ скачан');
+    };
+
+    const downloadExampleStudents = () => {
+        const exampleData = [
+            ['Email', 'Nickname', 'Имя', 'Фамилия', 'Школа', 'Класс'],
+            ['kater1@gmail.com', 'kate183', 'Катерина', 'Бельская', 'Лицей №10', '11-Б'],
+            ['ivanov@example.com', 'ivan2024', 'Иван', 'Иванов', 'ГБОУ Школа №1158', '10-А'],
+            ['petrova@example.com', 'petr03', 'Петр', 'Петров', 'ГБОУ Школа "Свиблово"', '9-В'],
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(exampleData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Ученики');
+        XLSX.writeFile(wb, `example_students_import.xlsx`);
+        toast.success('Пример файла учеников скачан');
+    };
+
+    const downloadExampleModerators = () => {
+        const exampleData = [
+            ['Email', 'Nickname', 'Имя', 'Фамилия', 'Отчество'],
+            ['moderator1@example.com', 'mod1', 'Анна', 'Смирнова', 'Александровна'],
+            ['moderator2@example.com', 'mod2', 'Дмитрий', 'Кузнецов', 'Игоревич'],
+            ['moderator3@example.com', 'mod3', 'Елена', 'Волкова', 'Сергеевна'],
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(exampleData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Модераторы');
+        XLSX.writeFile(wb, `example_moderators_import.xlsx`);
+        toast.success('Пример файла модераторов скачан');
+    };
+
     const handleExportSchools = async () => {
         setExportingSchools(true);
         try {
@@ -106,7 +152,6 @@ export const ImportExportPage: React.FC = () => {
         if (!moderatorFile) return toast.error('Выберите файл');
         setImporting(true); setImportResult(null);
         try {
-            // Используем тот же эндпоинт importStudents, но с параметром role=moderator
             const fd = new FormData();
             fd.append('file', moderatorFile);
             const { default: api } = await import('../app/api/axios');
@@ -201,12 +246,21 @@ export const ImportExportPage: React.FC = () => {
                     {tab === 'schools' && (
                         <>
                             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-sm text-slate-600">
-                                <p className="font-semibold text-slate-700 mb-2">📋 Формат файла — импорт школ</p>
-                                <div className="font-mono text-xs bg-white rounded-lg border border-slate-100 p-3 space-y-0.5">
-                                    <p className="text-slate-400">Строка 1 (заголовок — пропускается)</p>
-                                    <p><span className="text-blue-600">A:</span> Название школы</p>
-                                    <p className="text-slate-400 mt-1">Пример:</p>
-                                    <p><span className="text-blue-600">A2:</span> МБОУ «Школа №5»</p>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-slate-700 mb-2">📋 Формат файла — импорт школ</p>
+                                        <div className="font-mono text-xs bg-white rounded-lg border border-slate-100 p-3 space-y-0.5">
+                                            <p className="text-slate-400">Строка 1 (заголовок)</p>
+                                            <p><span className="text-blue-600">A:</span> Название школы</p>
+                                            <p className="text-slate-400 mt-1">Пример:</p>
+                                            <p><span className="text-blue-600">A2:</span> ГБОУ Школа "Свиблово"</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={downloadExampleSchools}
+                                            className="ml-4 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap">
+                                        <FileDown className="size-3.5" />
+                                        Скачать пример
+                                    </button>
                                 </div>
                                 <p className="text-xs text-slate-400 mt-2">Дубликаты по названию пропускаются автоматически.</p>
                             </div>
@@ -223,17 +277,26 @@ export const ImportExportPage: React.FC = () => {
                     {tab === 'students' && (
                         <>
                             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-sm text-slate-600">
-                                <p className="font-semibold text-slate-700 mb-2">📋 Формат файла — импорт учеников</p>
-                                <div className="font-mono text-xs bg-white rounded-lg border border-slate-100 p-3 space-y-0.5">
-                                    <p className="text-slate-400">Строка 1 (заголовок — пропускается)</p>
-                                    <p>
-                                        <span className="text-blue-600">A:</span> Email &nbsp;
-                                        <span className="text-blue-600">B:</span> Никнейм &nbsp;
-                                        <span className="text-blue-600">C:</span> Имя &nbsp;
-                                        <span className="text-blue-600">D:</span> Фамилия &nbsp;
-                                        <span className="text-blue-600">E:</span> Школа &nbsp;
-                                        <span className="text-blue-600">F:</span> Класс
-                                    </p>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-slate-700 mb-2">📋 Формат файла — импорт учеников</p>
+                                        <div className="font-mono text-xs bg-white rounded-lg border border-slate-100 p-3 space-y-0.5">
+                                            <p className="text-slate-400">Строка 1 (заголовок)</p>
+                                            <p>
+                                                <span className="text-blue-600">A:</span> Email &nbsp;
+                                                <span className="text-blue-600">B:</span> Никнейм &nbsp;
+                                                <span className="text-blue-600">C:</span> Имя &nbsp;
+                                                <span className="text-blue-600">D:</span> Фамилия &nbsp;
+                                                <span className="text-blue-600">E:</span> Школа &nbsp;
+                                                <span className="text-blue-600">F:</span> Класс
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button onClick={downloadExampleStudents}
+                                            className="ml-4 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap">
+                                        <FileDown className="size-3.5" />
+                                        Скачать пример
+                                    </button>
                                 </div>
                                 <div className="mt-2 space-y-1.5">
                                     <p className="text-xs text-amber-600 font-medium">
@@ -258,19 +321,28 @@ export const ImportExportPage: React.FC = () => {
                     {tab === 'moderators' && (
                         <>
                             <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100 text-sm text-slate-600">
-                                <p className="font-semibold text-emerald-800 mb-2 flex items-center gap-1.5">
-                                    <Shield className="size-4 text-emerald-600" />
-                                    Формат файла — импорт модераторов
-                                </p>
-                                <div className="font-mono text-xs bg-white rounded-lg border border-emerald-100 p-3 space-y-0.5">
-                                    <p className="text-slate-400">Строка 1 (заголовок — пропускается)</p>
-                                    <p>
-                                        <span className="text-emerald-600">A:</span> Email &nbsp;
-                                        <span className="text-emerald-600">B:</span> Никнейм &nbsp;
-                                        <span className="text-emerald-600">C:</span> Имя &nbsp;
-                                        <span className="text-emerald-600">D:</span> Фамилия &nbsp;
-                                        <span className="text-emerald-600">E:</span> Отчество
-                                    </p>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-emerald-800 mb-2 flex items-center gap-1.5">
+                                            <Shield className="size-4 text-emerald-600" />
+                                            Формат файла — импорт модераторов
+                                        </p>
+                                        <div className="font-mono text-xs bg-white rounded-lg border border-emerald-100 p-3 space-y-0.5">
+                                            <p className="text-slate-400">Строка 1 (заголовок)</p>
+                                            <p>
+                                                <span className="text-emerald-600">A:</span> Email &nbsp;
+                                                <span className="text-emerald-600">B:</span> Никнейм &nbsp;
+                                                <span className="text-emerald-600">C:</span> Имя &nbsp;
+                                                <span className="text-emerald-600">D:</span> Фамилия &nbsp;
+                                                <span className="text-emerald-600">E:</span> Отчество
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button onClick={downloadExampleModerators}
+                                            className="ml-4 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-100 rounded-lg hover:bg-emerald-200 transition-colors whitespace-nowrap">
+                                        <FileDown className="size-3.5" />
+                                        Скачать пример
+                                    </button>
                                 </div>
                                 <div className="mt-2 space-y-1.5">
                                     <p className="text-xs text-amber-600 font-medium">

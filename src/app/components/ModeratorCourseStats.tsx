@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Users, UserCheck, FileStack, School, Loader2 } from 'lucide-react';
-import { accountsApi } from '../api/accounts';
 import { coursesApi, type CourseLessonResponse, type LessonSubmissionResponse } from '../api/courses';
 import { toast } from 'sonner';
 
@@ -15,10 +14,11 @@ const CHART_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var
 
 export interface ModeratorCourseStatsProps {
   courseId: number;
+  forLaggingStudents?: boolean;
   lessons: CourseLessonResponse[];
 }
 
-export const ModeratorCourseStats: React.FC<ModeratorCourseStatsProps> = ({ courseId, lessons }) => {
+export const ModeratorCourseStats: React.FC<ModeratorCourseStatsProps> = ({ courseId, forLaggingStudents, lessons }) => {
   const [loading, setLoading] = useState(true);
   const [studentCount, setStudentCount] = useState<number | null>(null);
   const [submissions, setSubmissions] = useState<LessonSubmissionResponse[]>([]);
@@ -26,24 +26,9 @@ export const ModeratorCourseStats: React.FC<ModeratorCourseStatsProps> = ({ cour
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const schoolsRes = await coursesApi.getCourseSchools(courseId);
-      const schools = schoolsRes.data ?? [];
-
-      let pupils = 0;
-      await Promise.all(
-        schools.map(async (sch) => {
-          let page = 0;
-          let totalPages = 1;
-          do {
-            const r = await accountsApi.getBySchool(sch.id, page, 200);
-            const chunk = r.data.content ?? [];
-            pupils += chunk.filter((u) => u.role === 'Пользователь' && !u.is_banned).length;
-            totalPages = r.data.total_pages;
-            page++;
-          } while (page < totalPages);
-        }),
-      );
-      setStudentCount(schools.length === 0 ? null : pupils);
+      // Получаем сводку — бэкенд теперь включает всех учеников школ курса
+      const summaryRes = await coursesApi.getCourseSummary(courseId);
+      setStudentCount(summaryRes.data.students.length);
 
       const pageSize = 150;
       let page = 0;
@@ -96,134 +81,134 @@ export const ModeratorCourseStats: React.FC<ModeratorCourseStatsProps> = ({ cour
     perLesson[s.lesson_id].count += 1;
   });
   const barData = Object.entries(perLesson)
-    .map(([, v]) => ({
-      name:
-        v.title.length > 22
-          ? `${v.title.slice(0, 20)}…`
-          : v.title,
-      fullTitle: v.title,
-      count: v.count,
-      order: v.order,
-    }))
-    .sort((a, b) => a.order - b.order);
+      .map(([, v]) => ({
+        name:
+            v.title.length > 22
+                ? `${v.title.slice(0, 20)}…`
+                : v.title,
+        fullTitle: v.title,
+        count: v.count,
+        order: v.order,
+      }))
+      .sort((a, b) => a.order - b.order);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card px-6 py-12 text-muted-foreground">
-        <Loader2 className="size-5 animate-spin" />
-        <span className="text-sm">Загрузка статистики…</span>
-      </div>
+        <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card px-6 py-12 text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" />
+          <span className="text-sm">Загрузка статистики…</span>
+        </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard
-          icon={<School className="size-5 text-primary" />}
-          label="Учеников в школах курса"
-          value={studentCount == null ? '—' : String(studentCount)}
-          hint="Пользователи с ролью «Ученик» в привязанных школах"
-        />
-        <StatCard
-          icon={<Users className="size-5 text-primary" />}
-          label="Уникальных авторов работ"
-          value={String(uniqueAuthors)}
-          hint="Сколько разных учеников сдало хотя бы одну работу"
-        />
-        <StatCard
-          icon={<FileStack className="size-5 text-primary" />}
-          label="Всего сдач"
-          value={String(totalTurnIns)}
-          hint="Все записи работ по урокам"
-        />
-        <StatCard
-          icon={<UserCheck className="size-5 text-primary" />}
-          label="Принято работ"
-          value={String(byStatus.ACCEPTED ?? 0)}
-          hint="Статус «Принято»"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-foreground mb-1">Распределение по статусам</h3>
-          <p className="text-xs text-muted-foreground mb-3">Доля сдач по этапу проверки</p>
-          {pieData.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Пока нет сданных работ</p>
-          ) : (
-            <div className="h-[240px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={88}>
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: 'var(--card)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '12px',
-                      color: 'var(--card-foreground)',
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard
+              icon={<School className="size-5 text-primary" />}
+              label={forLaggingStudents ? 'Отстающих в курсе' : 'Учеников в курсе'}
+              value={studentCount == null ? '—' : String(studentCount)}
+              hint="Все ученики школ курса по данным сводной таблицы"
+          />
+          <StatCard
+              icon={<Users className="size-5 text-primary" />}
+              label="Уникальных авторов работ"
+              value={String(uniqueAuthors)}
+              hint="Сколько разных учеников сдало хотя бы одну работу"
+          />
+          <StatCard
+              icon={<FileStack className="size-5 text-primary" />}
+              label="Всего сдач"
+              value={String(totalTurnIns)}
+              hint="Все записи работ по урокам"
+          />
+          <StatCard
+              icon={<UserCheck className="size-5 text-primary" />}
+              label="Принято работ"
+              value={String(byStatus.ACCEPTED ?? 0)}
+              hint="Статус «Принято»"
+          />
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-foreground mb-1">Сдачи по урокам</h3>
-          <p className="text-xs text-muted-foreground mb-3">Сколько работ пришло по каждому заданию</p>
-          {barData.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Нет данных по урокам</p>
-          ) : (
-            <div className="h-[260px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border opacity-60" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-28} textAnchor="end" height={70} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    formatter={(value: number) => [value, 'Сдач']}
-                    labelFormatter={(_, payload) =>
-                      payload?.[0]?.payload?.fullTitle ? String(payload[0].payload.fullTitle) : ''
-                    }
-                    contentStyle={{
-                      background: 'var(--card)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '12px',
-                      color: 'var(--card-foreground)',
-                    }}
-                  />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                    {barData.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-foreground mb-1">Распределение по статусам</h3>
+            <p className="text-xs text-muted-foreground mb-3">Доля сдач по этапу проверки</p>
+            {pieData.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">Пока нет сданных работ</p>
+            ) : (
+                <div className="h-[240px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={88}>
+                        {pieData.map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                          contentStyle={{
+                            background: 'var(--card)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '12px',
+                            color: 'var(--card-foreground)',
+                          }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-foreground mb-1">Сдачи по урокам</h3>
+            <p className="text-xs text-muted-foreground mb-3">Сколько работ пришло по каждому заданию</p>
+            {barData.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">Нет данных по урокам</p>
+            ) : (
+                <div className="h-[260px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={barData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border opacity-60" />
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-28} textAnchor="end" height={70} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <Tooltip
+                          formatter={(value: number) => [value, 'Сдач']}
+                          labelFormatter={(_, payload) =>
+                              payload?.[0]?.payload?.fullTitle ? String(payload[0].payload.fullTitle) : ''
+                          }
+                          contentStyle={{
+                            background: 'var(--card)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '12px',
+                            color: 'var(--card-foreground)',
+                          }}
+                      />
+                      <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                        {barData.map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
   );
 };
 
 function StatCard(props: { icon: React.ReactNode; label: string; value: string; hint: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="rounded-xl bg-primary/10 p-2.5">{props.icon}</div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs text-muted-foreground leading-tight">{props.label}</p>
-          <p className="text-2xl font-bold text-foreground tabular-nums mt-1">{props.value}</p>
-          <p className="text-[11px] text-muted-foreground/80 mt-1.5 leading-snug">{props.hint}</p>
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-primary/10 p-2.5">{props.icon}</div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground leading-tight">{props.label}</p>
+            <p className="text-2xl font-bold text-foreground tabular-nums mt-1">{props.value}</p>
+            <p className="text-[11px] text-muted-foreground/80 mt-1.5 leading-snug">{props.hint}</p>
+          </div>
         </div>
       </div>
-    </div>
   );
 }

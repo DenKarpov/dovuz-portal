@@ -1,12 +1,72 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, ArrowLeft, User } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Save, ArrowLeft, User, Lock, Eye, EyeOff, Check, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { accountsApi } from '../app/api/accounts';
 import { schoolsApi, type SchoolResponse } from '../app/api/schools';
 import { schoolClassesApi, type SchoolClassResponse } from '../app/api/schoolClasses';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+
+
+// ──────────────────────────────────────────────
+// Password validation helpers (shared with RegisterPage)
+// ──────────────────────────────────────────────
+interface PwdRule { label: string; test: (p: string) => boolean; }
+const PWD_RULES: PwdRule[] = [
+  { label: 'Минимум 8 символов',           test: (p) => p.length >= 8 },
+  { label: 'Хотя бы одна заглавная буква', test: (p) => /[A-ZА-ЯЁ]/.test(p) },
+  { label: 'Хотя бы одна строчная буква',  test: (p) => /[a-zа-яё]/.test(p) },
+  { label: 'Хотя бы одна цифра',           test: (p) => /\d/.test(p) },
+];
+const STRENGTH_COLORS_EP = ['', 'bg-red-500', 'bg-orange-400', 'bg-yellow-400', 'bg-emerald-500'];
+
+function calcStrengthEP(p: string) { return PWD_RULES.filter(r => r.test(p)).length; }
+
+function PwdStrengthBar({ password }: { password: string }) {
+  const s = calcStrengthEP(password);
+  if (!password) return null;
+  return (
+      <div className="mt-1.5 space-y-1">
+        <div className="flex gap-1">
+          {[1,2,3,4].map(i => (
+              <div key={i} className="h-1 flex-1 rounded-full bg-slate-200 overflow-hidden">
+                <motion.div
+                    className={"h-full rounded-full " + (i <= s ? STRENGTH_COLORS_EP[s] : '')}
+                    initial={{ width: 0 }}
+                    animate={{ width: i <= s ? '100%' : '0%' }}
+                    transition={{ duration: 0.3 }}
+                />
+              </div>
+          ))}
+        </div>
+      </div>
+  );
+}
+
+function PwdRules({ password, show }: { password: string; show: boolean }) {
+  if (!show) return null;
+  return (
+      <AnimatePresence>
+        <motion.ul
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-1.5 space-y-1 overflow-hidden"
+        >
+          {PWD_RULES.map(rule => {
+            const ok = rule.test(password);
+            return (
+                <li key={rule.label} className="flex items-center gap-1.5 text-xs">
+                  {ok ? <Check className="size-3.5 text-emerald-500 shrink-0" /> : <X className="size-3.5 text-slate-300 shrink-0" />}
+                  <span className={ok ? 'text-emerald-600' : 'text-slate-400'}>{rule.label}</span>
+                </li>
+            );
+          })}
+        </motion.ul>
+      </AnimatePresence>
+  );
+}
 
 export const EditProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -32,6 +92,11 @@ export const EditProfilePage: React.FC = () => {
   const [pwdNew, setPwdNew] = useState('');
   const [pwdConfirm, setPwdConfirm] = useState('');
   const [pwdSaving, setPwdSaving] = useState(false);
+  const [showPwdCurrent, setShowPwdCurrent] = useState(false);
+  const [showPwdNew, setShowPwdNew] = useState(false);
+  const [showPwdConfirm, setShowPwdConfirm] = useState(false);
+  const [pwdNewFocused, setPwdNewFocused] = useState(false);
+  const allNewRulesPass = useMemo(() => PWD_RULES.every(r => r.test(pwdNew)), [pwdNew]);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -120,8 +185,8 @@ export const EditProfilePage: React.FC = () => {
       toast.error('Введите текущий пароль');
       return;
     }
-    if (pwdNew.length < 8) {
-      toast.error('Новый пароль: минимум 8 символов');
+    if (!allNewRulesPass) {
+      toast.error('Новый пароль не соответствует требованиям безопасности');
       return;
     }
     if (pwdNew !== pwdConfirm) {
@@ -144,204 +209,238 @@ export const EditProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="max-w-xl mx-auto px-6 py-10 animate-pulse">
-        <div className="bg-white rounded-2xl border border-gray-100 p-8 space-y-5">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="h-12 bg-gray-100 rounded-xl" />)}
+        <div className="max-w-xl mx-auto px-6 py-10 animate-pulse">
+          <div className="bg-white rounded-2xl border border-gray-100 p-8 space-y-5">
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-12 bg-gray-100 rounded-xl" />)}
+          </div>
         </div>
-      </div>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45 }}
-      className="max-w-xl mx-auto px-6 py-10"
-    >
-      <button
-        onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground mb-6 transition-colors group"
+      <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="max-w-xl mx-auto px-6 py-10"
       >
-        <ArrowLeft className="size-5 group-hover:-translate-x-0.5 transition-transform" />
-        Назад
-      </button>
+        <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground mb-6 transition-colors group"
+        >
+          <ArrowLeft className="size-5 group-hover:-translate-x-0.5 transition-transform" />
+          Назад
+        </button>
 
-      <div className="bg-card rounded-2xl border border-border p-8">
-        <h1 className="text-foreground text-2xl font-bold mb-6">Редактирование профиля</h1>
+        <div className="bg-card rounded-2xl border border-border p-8">
+          <h1 className="text-foreground text-2xl font-bold mb-6">Редактирование профиля</h1>
 
-        {/* Avatar */}
-        <div className="flex items-center gap-5 mb-7 pb-7 border-b border-gray-100">
-          <div className="size-18 rounded-2xl bg-blue-100 flex items-center justify-center" style={{ width: 72, height: 72 }}>
-            <User className="size-8 text-blue-400" />
-          </div>
-          <div>
-            <p className="text-base text-gray-600 mb-2">Фото профиля</p>
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.png"
-              onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-              className="text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-5">
-          <div>
-            <label className="block text-base text-gray-700 font-medium mb-2">Никнейм</label>
-            <input
-              type="text"
-              value={form.nickname}
-              onChange={(e) => setForm({ ...form, nickname: e.target.value })}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
-              placeholder="Ваш никнейм"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-base text-gray-700 font-medium mb-2">Имя</label>
-              <input
-                type="text"
-                value={form.firstName}
-                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
-                placeholder="Иван"
-              />
+          {/* Avatar */}
+          <div className="flex items-center gap-5 mb-7 pb-7 border-b border-gray-100">
+            <div className="size-18 rounded-2xl bg-blue-100 flex items-center justify-center" style={{ width: 72, height: 72 }}>
+              <User className="size-8 text-blue-400" />
             </div>
             <div>
-              <label className="block text-base text-gray-700 font-medium mb-2">Фамилия</label>
+              <p className="text-base text-gray-600 mb-2">Фото профиля</p>
               <input
-                type="text"
-                value={form.lastName}
-                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
-                placeholder="Иванов"
+                  type="file"
+                  accept=".jpg,.jpeg,.png"
+                  onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+                  className="text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-base text-gray-700 font-medium mb-2">Отчество</label>
-            <input
-              type="text"
-              value={form.middleName}
-              onChange={(e) => setForm({ ...form, middleName: e.target.value })}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
-              placeholder="Иванович"
-            />
-          </div>
+          <div className="space-y-5">
+            <div>
+              <label className="block text-base text-gray-700 font-medium mb-2">Никнейм</label>
+              <input
+                  type="text"
+                  value={form.nickname}
+                  onChange={(e) => setForm({ ...form, nickname: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
+                  placeholder="Ваш никнейм"
+              />
+            </div>
 
-          <div>
-            <label className="block text-base text-gray-700 font-medium mb-2">Дата рождения</label>
-            <input
-              type="date"
-              value={form.birthDate}
-              onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
-            />
-          </div>
-
-          <div>
-            <label className="block text-base text-gray-700 font-medium mb-2">О себе</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={3}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
-              placeholder="Расскажите о себе..."
-            />
-          </div>
-
-          {showSchool && (
-            <>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-base text-gray-700 font-medium mb-2">Школа</label>
-                <select
-                  value={form.schoolId}
-                  onChange={(e) => handleSchoolChange(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
-                >
-                  <option value="">Не выбрано</option>
-                  {schools.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
+                <label className="block text-base text-gray-700 font-medium mb-2">Имя</label>
+                <input
+                    type="text"
+                    value={form.firstName}
+                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
+                    placeholder="Иван"
+                />
               </div>
-
-              {classes.length > 0 && (
-                <div>
-                  <label className="block text-base text-gray-700 font-medium mb-2">Класс</label>
-                  <select
-                    value={form.classId}
-                    onChange={(e) => setForm({ ...form, classId: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
-                  >
-                    <option value="">Не выбрано</option>
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </>
-          )}
-
-          <div className="pt-6 mt-6 border-t border-border space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Смена пароля</h2>
-            <p className="text-sm text-muted-foreground">Доступно всем пользователям.</p>
-            <div className="space-y-3">
-              <input
-                type="password"
-                autoComplete="current-password"
-                placeholder="Текущий пароль"
-                value={pwdCurrent}
-                onChange={(e) => setPwdCurrent(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="password"
-                autoComplete="new-password"
-                placeholder="Новый пароль (мин. 8 символов)"
-                value={pwdNew}
-                onChange={(e) => setPwdNew(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="password"
-                autoComplete="new-password"
-                placeholder="Подтверждение нового пароля"
-                value={pwdConfirm}
-                onChange={(e) => setPwdConfirm(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={handlePasswordChange}
-                disabled={pwdSaving}
-                className="w-full py-3 rounded-xl border border-border font-medium text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
-              >
-                {pwdSaving ? 'Сохранение…' : 'Обновить пароль'}
-              </button>
+              <div>
+                <label className="block text-base text-gray-700 font-medium mb-2">Фамилия</label>
+                <input
+                    type="text"
+                    value={form.lastName}
+                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
+                    placeholder="Иванов"
+                />
+              </div>
             </div>
-          </div>
 
-          <motion.button
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 text-white text-base font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60 mt-2"
-          >
-            {saving ? (
-              <span className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Save className="size-5" />
+            <div>
+              <label className="block text-base text-gray-700 font-medium mb-2">Отчество</label>
+              <input
+                  type="text"
+                  value={form.middleName}
+                  onChange={(e) => setForm({ ...form, middleName: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
+                  placeholder="Иванович"
+              />
+            </div>
+
+            <div>
+              <label className="block text-base text-gray-700 font-medium mb-2">Дата рождения</label>
+              <input
+                  type="date"
+                  value={form.birthDate}
+                  onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-base text-gray-700 font-medium mb-2">О себе</label>
+              <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={3}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all"
+                  placeholder="Расскажите о себе..."
+              />
+            </div>
+
+            {showSchool && (
+                <>
+                  <div>
+                    <label className="block text-base text-gray-700 font-medium mb-2">Школа</label>
+                    <select
+                        value={form.schoolId}
+                        onChange={(e) => handleSchoolChange(e.target.value)}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                    >
+                      <option value="">Не выбрано</option>
+                      {schools.map((s) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {classes.length > 0 && (
+                      <div>
+                        <label className="block text-base text-gray-700 font-medium mb-2">Класс</label>
+                        <select
+                            value={form.classId}
+                            onChange={(e) => setForm({ ...form, classId: e.target.value })}
+                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                        >
+                          <option value="">Не выбрано</option>
+                          {classes.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                  )}
+                </>
             )}
-            {saving ? 'Сохранение...' : 'Сохранить профиль'}
-          </motion.button>
+
+            <div className="pt-6 mt-6 border-t border-border space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">Смена пароля</h2>
+              <p className="text-sm text-muted-foreground">Доступно всем пользователям.</p>
+              <div className="space-y-3">
+                {/* Current password */}
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                  <input
+                      type={showPwdCurrent ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      placeholder="Текущий пароль"
+                      value={pwdCurrent}
+                      onChange={(e) => setPwdCurrent(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl pl-10 pr-10 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button type="button" onClick={() => setShowPwdCurrent(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                    {showPwdCurrent ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+
+                {/* New password + strength */}
+                <div>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <input
+                        type={showPwdNew ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        placeholder="Новый пароль"
+                        value={pwdNew}
+                        onChange={(e) => setPwdNew(e.target.value)}
+                        onFocus={() => setPwdNewFocused(true)}
+                        onBlur={() => setPwdNewFocused(false)}
+                        className="w-full border border-gray-200 rounded-xl pl-10 pr-10 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button type="button" onClick={() => setShowPwdNew(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                      {showPwdNew ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                  <AnimatePresence>
+                    {pwdNew.length > 0 && <PwdStrengthBar password={pwdNew} />}
+                  </AnimatePresence>
+                  <PwdRules password={pwdNew} show={pwdNewFocused || (pwdNew.length > 0 && !allNewRulesPass)} />
+                </div>
+
+                {/* Confirm password */}
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                  <input
+                      type={showPwdConfirm ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      placeholder="Подтверждение нового пароля"
+                      value={pwdConfirm}
+                      onChange={(e) => setPwdConfirm(e.target.value)}
+                      className={"w-full border rounded-xl pl-10 pr-10 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 " + (pwdConfirm && pwdConfirm !== pwdNew ? 'border-red-300' : 'border-gray-200')}
+                  />
+                  <button type="button" onClick={() => setShowPwdConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                    {showPwdConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                  {pwdConfirm && pwdConfirm !== pwdNew && (
+                      <p className="text-xs text-red-500 mt-1">Пароли не совпадают</p>
+                  )}
+                </div>
+                <button
+                    type="button"
+                    onClick={handlePasswordChange}
+                    disabled={pwdSaving}
+                    className="w-full py-3 rounded-xl border border-border font-medium text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
+                >
+                  {pwdSaving ? 'Сохранение…' : 'Обновить пароль'}
+                </button>
+              </div>
+            </div>
+
+            <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 text-white text-base font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60 mt-2"
+            >
+              {saving ? (
+                  <span className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                  <Save className="size-5" />
+              )}
+              {saving ? 'Сохранение...' : 'Сохранить профиль'}
+            </motion.button>
+          </div>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
   );
 };

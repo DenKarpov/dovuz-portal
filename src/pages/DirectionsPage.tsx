@@ -1,131 +1,105 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, ArrowRight, Compass, FlaskConical, Palette, Code2, Calculator, Globe, Search } from 'lucide-react';
+import { BookOpen, ArrowRight, Search, Calculator, Code2, FlaskConical, Compass, Palette, Globe } from 'lucide-react';
 import { motion } from 'motion/react';
 import { directionsApi, type DirectionResponse } from '../app/api/directions';
 import { toast } from 'sonner';
 
-const DIRECTION_STYLES = [
-  { gradient: 'from-blue-600 to-blue-800', shadow: 'shadow-blue-200', icon: <Calculator className="size-6 text-white" /> },
-  { gradient: 'from-blue-600 to-cyan-700', shadow: 'shadow-cyan-200', icon: <Code2 className="size-6 text-white" /> },
-  { gradient: 'from-emerald-600 to-teal-700', shadow: 'shadow-teal-200', icon: <FlaskConical className="size-6 text-white" /> },
-  { gradient: 'from-orange-500 to-red-600', shadow: 'shadow-orange-200', icon: <Compass className="size-6 text-white" /> },
-  { gradient: 'from-pink-600 to-rose-700', shadow: 'shadow-rose-200', icon: <Palette className="size-6 text-white" /> },
-  { gradient: 'from-amber-500 to-yellow-600', shadow: 'shadow-yellow-200', icon: <Globe className="size-6 text-white" /> },
+const PALETTE = [
+    'from-blue-500 to-blue-700',
+    'from-indigo-500 to-indigo-700',
+    'from-emerald-500 to-teal-700',
+    'from-orange-500 to-red-600',
+    'from-pink-500 to-rose-700',
+    'from-amber-500 to-yellow-600',
+    'from-purple-500 to-violet-700',
+    'from-cyan-500 to-sky-700',
 ];
+const ICONS = [Calculator, Code2, FlaskConical, Compass, Palette, Globe, BookOpen, ArrowRight];
 
 export const DirectionsPage: React.FC = () => {
-  const [directions, setDirections] = useState<DirectionResponse[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+    const [directions, setDirections] = useState<DirectionResponse[]>([]);
+    const [search, setSearch] = useState('');
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    directionsApi.getAll()
-      .then(res => setDirections(res.data))
-      .catch(() => toast.error('Ошибка загрузки направлений'))
-      .finally(() => setLoading(false));
-  }, []);
+    useEffect(() => {
+        directionsApi.getAll()
+            .then(res => setDirections(res.data))
+            .catch(() => toast.error('Ошибка загрузки направлений'))
+            .finally(() => setLoading(false));
+    }, []);
 
-  return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45 }}
-        className="flex items-center gap-3 mb-2"
-      >
-        <div className="size-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
-          <BookOpen className="size-5 text-white" />
+    const filtered = search
+        ? directions.filter(d => d.name.toLowerCase().includes(search.toLowerCase()))
+        : directions;
+
+    return (
+        <div className="max-w-6xl mx-auto px-6 py-8">
+            {/* Header */}
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+                        className="flex items-center gap-4 mb-8">
+                <div className="size-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 shrink-0">
+                    <BookOpen className="size-6 text-white" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">Учебные материалы</h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">Выберите направление для просмотра дисциплин</p>
+                </div>
+            </motion.div>
+
+            {/* Breadcrumb */}
+            <motion.nav initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }}
+                        className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
+                <span>Материалы</span>
+                <span>/</span>
+                <span className="text-foreground font-medium">Направления</span>
+            </motion.nav>
+
+            {/* Search */}
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
+                        className="relative mb-6">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Найти направление..."
+                       className="w-full h-11 pl-10 pr-4 border border-border rounded-xl text-sm bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+            </motion.div>
+
+            {/* Grid */}
+            {loading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {[1,2,3,4,5,6].map(i => (
+                        <div key={i} className="bg-card rounded-2xl border border-border h-32 animate-pulse" />
+                    ))}
+                </div>
+            ) : filtered.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                    <Search className="size-8 mx-auto mb-3 opacity-40" />
+                    <p>{search ? `Ничего не найдено по «${search}»` : 'Нет доступных направлений'}</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {filtered.map((dir, idx) => {
+                        const Icon = ICONS[idx % ICONS.length];
+                        const grad = PALETTE[idx % PALETTE.length];
+                        return (
+                            <motion.div key={dir.id}
+                                        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.3, delay: idx * 0.04 }}
+                                        whileHover={{ y: -2 }}>
+                                <Link to={`/directions/${dir.id}/subjects`}
+                                      className="group flex flex-col bg-card rounded-2xl border border-border hover:border-primary/25 hover:shadow-md hover:shadow-primary/5 transition-all overflow-hidden h-full min-h-[120px] p-5">
+                                    <div className={`size-10 rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center mb-3 shadow-md`}>
+                                        <Icon className="size-5 text-white" />
+                                    </div>
+                                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 flex-1">{dir.name}</p>
+                                    <div className="flex items-center gap-1 mt-2 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                                        Открыть <ArrowRight className="size-3" />
+                                    </div>
+                                </Link>
+                            </motion.div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
-        <div>
-          <h1 className="text-slate-900 text-2xl font-bold">📚 Учебные материалы</h1>
-          <p className="text-slate-400 text-base">Выберите направление для просмотра дисциплин</p>
-        </div>
-      </motion.div>
-
-      {/* Breadcrumb */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="flex items-center gap-2 text-sm mb-8 mt-4"
-      >
-        <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg font-medium text-xs">Направления</span>
-      </motion.div>
-
-      {/* Search */}
-      <div className="relative mb-8">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
-        <input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="🔍 Поиск по направлениям..."
-          className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
-        />
-      </div>
-
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="h-48 bg-slate-100 rounded-3xl animate-pulse" />
-          ))}
-        </div>
-      ) : (() => {
-        const filtered = directions.filter(d => !searchQuery.trim() || d.name.toLowerCase().includes(searchQuery.trim().toLowerCase()));
-        return filtered.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-20"
-        >
-          <div className="size-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <BookOpen className="size-8 text-slate-300" />
-          </div>
-          <p className="text-slate-400 text-base">{directions.length === 0 ? '📭 Направлений пока нет' : '🔍 Ничего не найдено'}</p>
-        </motion.div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((dir, idx) => {
-            const style = DIRECTION_STYLES[idx % DIRECTION_STYLES.length];
-            return (
-              <motion.div
-                key={dir.id}
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45, delay: idx * 0.07, ease: [0.22, 1, 0.36, 1] }}
-                whileHover={{ y: -6, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
-              >
-                <Link
-                  to={`/directions/${dir.id}/subjects`}
-                  className={`group relative overflow-hidden rounded-3xl p-6 text-white block`}
-                >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${style.gradient}`} />
-
-                  {/* Decorative circles */}
-                  <div className="absolute -top-6 -right-6 size-28 rounded-full bg-white/10" />
-                  <div className="absolute -bottom-8 -left-4 size-20 rounded-full bg-black/10" />
-
-                  <div className="relative flex flex-col h-full gap-4 min-h-[140px]">
-                    <div className="size-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20 shadow-sm">
-                      {style.icon}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-white/60 text-xs font-medium mb-1">Направление #{dir.id}</p>
-                      <h3 className="text-white text-lg font-bold leading-snug">{dir.name}</h3>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-white/80 text-sm font-medium group-hover:text-white transition-colors">
-                      Предметы
-                      <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </div>
-                </Link>
-              </motion.div>
-            );
-          })}
-        </div>
-      );
-      })()}
-    </div>
-  );
+    );
 };

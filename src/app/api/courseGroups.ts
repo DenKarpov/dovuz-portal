@@ -35,22 +35,30 @@ export interface UpdateGroupRequest {
 
 export const courseGroupsApi = {
   getGroups: (courseId: number) =>
-    api.get<CourseGroupResponse[]>(`/courses/${courseId}/groups`),
+      api.get<CourseGroupResponse[]>(`/courses/${courseId}/groups`),
 
   createGroup: (courseId: number, data: CreateGroupRequest) =>
-    api.post<CourseGroupResponse>(`/courses/${courseId}/groups`, data),
+      api.post<CourseGroupResponse>(`/courses/${courseId}/groups`, data),
 
   updateGroup: (courseId: number, groupId: number, data: UpdateGroupRequest) =>
-    api.patch<CourseGroupResponse>(`/courses/${courseId}/groups/${groupId}`, data),
+      api.patch<CourseGroupResponse>(`/courses/${courseId}/groups/${groupId}`, data),
 
   getMyGroup: (courseId: number) =>
-    api.get<CourseGroupResponse | null>(`/courses/${courseId}/groups/my`),
+      api.get<CourseGroupResponse | null>(`/courses/${courseId}/groups/my`),
 
   /** Ученик создаёт свою группу (выбирает тему), опционально — одноклассники */
   createMyGroup: (courseId: number, data: { title: string; description?: string; classmate_account_ids?: number[] }) =>
-    api.post<CourseGroupResponse>(`/courses/${courseId}/groups/my`, data),
+      api.post<CourseGroupResponse>(`/courses/${courseId}/groups/my`, data),
 
   /** Сменить название/описание темы своей группы */
   updateMyGroupTopic: (courseId: number, groupId: number, data: { title?: string; description?: string }) =>
-    api.patch<CourseGroupResponse>(`/courses/${courseId}/groups/${groupId}/topic`, data),
+      api.patch<CourseGroupResponse>(`/courses/${courseId}/groups/${groupId}/topic`, data),
+
+  /** Добавить участника в группу (ученик или модератор) */
+  addGroupMember: (courseId: number, groupId: number, accountId: number) =>
+      api.post<CourseGroupResponse>(`/courses/${courseId}/groups/${groupId}/members/${accountId}`),
+
+  /** Удалить участника из группы */
+  removeGroupMember: (courseId: number, groupId: number, accountId: number) =>
+      api.delete<CourseGroupResponse>(`/courses/${courseId}/groups/${groupId}/members/${accountId}`),
 };
