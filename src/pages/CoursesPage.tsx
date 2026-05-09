@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpenCheck, ArrowRight, GraduationCap, Layers, Trophy, Search } from 'lucide-react';
+import { BookOpenCheck, ArrowRight, GraduationCap, Layers, Trophy, Search, BookOpen, AlertTriangle, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { coursesApi, type CourseModeratorResponse, type CourseShortResponse } from '../app/api/courses';
 import { useAuth } from '../context/AuthContext';
@@ -21,21 +21,43 @@ export const CoursesPage: React.FC = () => {
         setLoading(true);
         if (isModeratorOnly) {
             coursesApi.myAssignedCourses()
-                .then(r => {
+                .then(async r => {
                     const map = new Map<number, CourseShortResponse>();
-                    (r.data ?? []).forEach((a: CourseModeratorResponse) => {
+                    const assignments = r.data ?? [];
+
+                    for (const a of assignments) {
                         if (!map.has(a.course_id)) {
-                            map.set(a.course_id, {
-                                id: a.course_id,
-                                name: a.course_name,
-                                description: '',
-                                schools: [],
-                                is_active: true,
-                                lesson_count: 0,
-                                created_at: '',
-                            });
+                            try {
+                                // Загружаем полный курс
+                                const fullCourse = await coursesApi.getModeratedCourse(a.course_id);
+                                const course = fullCourse.data;
+                                map.set(a.course_id, {
+                                    id: course.id,
+                                    name: course.name,
+                                    description: course.description ?? '',
+                                    schools: course.schools ?? [],
+                                    is_active: course.is_active,
+                                    is_introduction: course.is_introduction ?? false,
+                                    for_lagging_students: course.for_lagging_students ?? false,
+                                    lesson_count: course.lessons?.length ?? 0,
+                                    created_at: course.created_at,
+                                });
+                            } catch {
+                                // Fallback
+                                map.set(a.course_id, {
+                                    id: a.course_id,
+                                    name: a.course_name,
+                                    description: a.course_description ?? '',
+                                    schools: a.course_schools ?? [],
+                                    is_active: a.is_active ?? true,
+                                    is_introduction: a.is_introduction ?? false,
+                                    for_lagging_students: a.for_lagging_students ?? false,
+                                    lesson_count: a.lesson_count ?? 0,
+                                    created_at: a.assigned_at,
+                                });
+                            }
                         }
-                    });
+                    }
                     setCourses(Array.from(map.values()));
                 })
                 .catch(() => toast.error('Ошибка загрузки курсов'))
@@ -99,7 +121,7 @@ export const CoursesPage: React.FC = () => {
             )}
 
             {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
                     {[1, 2, 3, 4].map(i => (
                         <div key={i} className="bg-card rounded-2xl border border-border overflow-hidden">
                             <div className="h-2 bg-muted" />
@@ -137,73 +159,104 @@ export const CoursesPage: React.FC = () => {
                     <p className="text-muted-foreground">Ничего не найдено по запросу «{search}»</p>
                 </motion.div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
                     <AnimatePresence mode="popLayout">
-                        {filtered.map((course, idx) => (
-                            <motion.div
-                                key={course.id}
-                                layout
-                                initial={{ opacity: 0, y: 20, scale: 0.97 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                whileHover={{ y: -4, boxShadow: '0 8px 30px -10px rgba(59, 130, 246, 0.15)' }}
-                                transition={{ duration: 0.35, delay: idx * 0.05 }}
-                            >
-                                <Link
-                                    to={`/courses/${course.id}`}
-                                    className="group block bg-card rounded-2xl border border-border hover:border-primary/30 transition-all overflow-hidden"
+                        {filtered.map((course, idx) => {
+                            const isIntro = course.is_introduction;
+                            const isLagging = course.for_lagging_students;
+                            // Цвет полоски и иконки зависит от типа курса
+                            const accentClass = isLagging
+                                ? 'from-amber-500 via-amber-400 to-amber-500'
+                                : isIntro
+                                    ? 'from-blue-500 via-blue-400 to-blue-500'
+                                    : 'from-primary via-primary/70 to-primary/90';
+                            const iconBg = isLagging
+                                ? 'bg-amber-100 border-amber-200'
+                                : isIntro
+                                    ? 'bg-blue-100 border-blue-200'
+                                    : 'bg-primary/10 border-primary/20';
+                            const iconColor = isLagging ? 'text-amber-600' : isIntro ? 'text-blue-600' : 'text-primary';
+                            const CourseIcon = isLagging ? AlertTriangle : isIntro ? BookOpen : Target;
+
+                            return (
+                                <motion.div
+                                    key={course.id}
+                                    layout
+                                    initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    whileHover={{ y: -4, boxShadow: '0 8px 30px -10px rgba(59, 130, 246, 0.15)' }}
+                                    transition={{ duration: 0.35, delay: idx * 0.05 }}
+                                    className="h-full"
                                 >
-                                    <div className="h-1.5 bg-gradient-to-r from-primary via-primary/70 to-primary/90" />
-                                    <div className="p-6">
-                                        <div className="flex items-start gap-4">
-                                            <motion.div
-                                                whileHover={{ rotate: [0, -5, 5, 0] }}
-                                                transition={{ duration: 0.4 }}
-                                                className="shrink-0 size-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center"
-                                            >
-                                                <BookOpenCheck className="size-5 text-primary" />
-                                            </motion.div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-semibold text-foreground text-lg group-hover:text-primary truncate transition-colors">
-                                                    {course.name}
-                                                </h3>
-                                                {course.description && (
-                                                    <p className="text-muted-foreground line-clamp-2 mt-1.5 text-sm">{course.description}</p>
-                                                )}
+                                    <Link
+                                        to={`/courses/${course.id}`}
+                                        className="group flex flex-col h-full bg-card rounded-2xl border border-border hover:border-primary/30 transition-all overflow-hidden min-h-[200px]"
+                                        style={{ minHeight: 160 }}
+                                    >
+                                        <div className={`h-1.5 bg-gradient-to-r ${accentClass} flex-shrink-0`} />
+                                        <div className="p-6 flex flex-col flex-1">
+                                            <div className="flex items-start gap-4 flex-1">
+                                                <motion.div
+                                                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                                                    transition={{ duration: 0.4 }}
+                                                    className={`shrink-0 size-12 rounded-xl ${iconBg} border flex items-center justify-center`}
+                                                >
+                                                    <CourseIcon className={`size-5 ${iconColor}`} />
+                                                </motion.div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                        <h3 className="font-semibold text-foreground text-base group-hover:text-primary transition-colors leading-snug">
+                                                            {course.name}
+                                                        </h3>
+                                                        {isIntro && (
+                                                            <span className="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700 border border-blue-200">Вводный</span>
+                                                        )}
+                                                        {isLagging && (
+                                                            <span className="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200">Для отстающих</span>
+                                                        )}
+                                                        {!isIntro && !isLagging && (
+                                                            <span className="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200">Целевой</span>
+                                                        )}
+                                                    </div>
+                                                    {course.description && (
+                                                        <p className="text-muted-foreground line-clamp-2 text-sm">{course.description}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-border flex-shrink-0">
+                                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                                    {!isModeratorOnly && (
+                                                        <>
+                                                            <span className="flex items-center gap-1.5">
+                                                                <Layers className="size-3.5" />
+                                                                {course.lesson_count} {getLessonWord(course.lesson_count)}
+                                                            </span>
+                                                            <span className="flex items-center gap-1.5">
+                                                                <Trophy className="size-3.5" />
+                                                                Баллы за задания
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                    {isModeratorOnly && (
+                                                        <span className={`flex items-center gap-1.5 font-medium ${iconColor}`}>
+                                                            <BookOpenCheck className="size-3.5" />
+                                                            Открыть — материалы и проверка
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <motion.div
+                                                    className="size-8 rounded-lg bg-muted group-hover:bg-primary/10 flex items-center justify-center transition-colors"
+                                                    whileHover={{ x: 3 }}
+                                                >
+                                                    <ArrowRight className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                                </motion.div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center justify-between mt-5 pt-4 border-t border-border">
-                                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                {!isModeratorOnly && (
-                                                    <>
-                            <span className="flex items-center gap-1.5">
-                              <Layers className="size-3.5" />
-                                {course.lesson_count} {getLessonWord(course.lesson_count)}
-                            </span>
-                                                        <span className="flex items-center gap-1.5">
-                              <Trophy className="size-3.5" />
-                              Баллы за задания
-                            </span>
-                                                    </>
-                                                )}
-                                                {isModeratorOnly && (
-                                                    <span className="flex items-center gap-1.5 text-primary font-medium">
-                            <BookOpenCheck className="size-3.5" />
-                            Открыть курс — материалы и проверка
-                          </span>
-                                                )}
-                                            </div>
-                                            <motion.div
-                                                className="size-8 rounded-lg bg-muted group-hover:bg-primary/10 flex items-center justify-center transition-colors"
-                                                whileHover={{ x: 3 }}
-                                            >
-                                                <ArrowRight className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                            </motion.div>
-                                        </div>
-                                    </div>
-                                </Link>
-                            </motion.div>
-                        ))}
+                                    </Link>
+                                </motion.div>
+                            );
+                        })}
                     </AnimatePresence>
                 </div>
             )}

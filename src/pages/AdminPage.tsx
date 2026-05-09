@@ -167,25 +167,29 @@ const UsersTab: React.FC = () => {
 
 
     // Загрузка списка классов для выбранной школы
+    // Загрузка списка классов для выбранной школы
     const fetchClassesForSchool = async (schoolId: string) => {
         if (!schoolId) {
             setClasses([]);
             return;
         }
         try {
-            console.log('Загрузка классов для школы ID:', schoolId); // Для отладки
+            console.log('Загрузка классов для школы ID:', schoolId);
             const res = await schoolClassesApi.getBySchool(Number(schoolId));
-            console.log('Получены классы:', res.data); // Для отладки
+            console.log('Получены классы (data):', res.data);
 
-            // Проверяем, что данные пришли и это массив
+            // Проверяем, что данные получены и это массив
             if (res.data && Array.isArray(res.data)) {
                 const formattedClasses = res.data.map(cls => ({
                     id: cls.id,
                     name: cls.name,
-                    schoolId: cls.school.id
+                    // Безопасная проверка: если school есть, берём его id, иначе используем schoolId из параметра
+                    schoolId: cls.school?.id ?? Number(schoolId)
                 }));
+                console.log('Форматированные классы:', formattedClasses);
                 setClasses(formattedClasses);
             } else {
+                console.log('Нет классов или не массив');
                 setClasses([]);
             }
         } catch (error) {
@@ -2168,8 +2172,14 @@ export const CoursesTab: React.FC = () => {
                                             {!c.is_active && (
                                                 <span className="inline-block text-[10px] px-1.5 py-0.5 bg-red-50 text-red-500 rounded border border-red-100">неактивен</span>
                                             )}
+                                            {c.is_introduction && (
+                                                <span className="inline-block text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-100 font-medium">Вводный</span>
+                                            )}
                                             {c.for_lagging_students && (
-                                                <span className="inline-block text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-100">отстающие</span>
+                                                <span className="inline-block text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-100 font-medium">Для отстающих</span>
+                                            )}
+                                            {!c.is_introduction && !c.for_lagging_students && (
+                                                <span className="inline-block text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-100 font-medium">Целевой</span>
                                             )}
                                         </div>
                                     </div>
@@ -2238,35 +2248,92 @@ export const CoursesTab: React.FC = () => {
                                                 </button>
                                             </div>
                                         )}
-                                        <label className="flex items-start gap-3 mt-4 p-3 rounded-xl border border-amber-100 bg-amber-50/60 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-400"
-                                                checked={!!activeCourse.for_lagging_students}
-                                                disabled={laggingFlagSaving}
-                                                onChange={async (e) => {
-                                                    if (!activeCourse) return;
-                                                    setLaggingFlagSaving(true);
-                                                    try {
-                                                        await coursesApi.patchForLaggingStudents(activeCourse.id, e.target.checked);
-                                                        const next = { ...activeCourse, for_lagging_students: e.target.checked };
-                                                        setActiveCourse(next);
-                                                        await loadAllCourses();
-                                                        toast.success(e.target.checked ? 'Включён режим курса для отстающих' : 'Режим отключён');
-                                                    } catch (err: any) {
-                                                        toast.error(err.response?.data?.message ?? 'Ошибка сохранения');
-                                                    } finally {
-                                                        setLaggingFlagSaving(false);
-                                                    }
-                                                }}
-                                            />
-                                            <span className="text-xs text-amber-950">
-                        <span className="font-semibold block">Курс для отстающих</span>
-                        <span className="text-amber-900/90 mt-1 block leading-relaxed">
-                          Ученики с отметкой «отстающий» из привязанных школ автоматически получают здесь группу после проверки дедлайнов и сразу при включении опции или привязке школы.
-                        </span>
-                      </span>
+                                        <label className="flex items-start gap-3 mt-4 p-3 rounded-xl border border-slate-100 bg-slate-50/60">
+                                            <span className="text-xs text-slate-700 font-semibold block mb-2 w-full">Тип курса</span>
                                         </label>
+                                        <div className="space-y-2 mt-1">
+                                            {/* Вводный */}
+                                            <label className="flex items-start gap-3 p-3 rounded-xl border border-blue-100 bg-blue-50/60 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="courseType"
+                                                    className="mt-0.5 text-blue-600 focus:ring-blue-400"
+                                                    checked={!!activeCourse.is_introduction && !activeCourse.for_lagging_students}
+                                                    disabled={laggingFlagSaving}
+                                                    onChange={async () => {
+                                                        if (!activeCourse) return;
+                                                        setLaggingFlagSaving(true);
+                                                        try {
+                                                            await coursesApi.patchIsIntroduction(activeCourse.id, true);
+                                                            if (activeCourse.for_lagging_students) await coursesApi.patchForLaggingStudents(activeCourse.id, false);
+                                                            const next = { ...activeCourse, is_introduction: true, for_lagging_students: false };
+                                                            setActiveCourse(next);
+                                                            await loadAllCourses();
+                                                            toast.success('Курс помечен как вводный');
+                                                        } catch (err: any) { toast.error(err.response?.data?.message ?? 'Ошибка'); }
+                                                        finally { setLaggingFlagSaving(false); }
+                                                    }}
+                                                />
+                                                <span className="text-xs text-blue-950">
+                                                    <span className="font-semibold block">Вводный курс</span>
+                                                    <span className="text-blue-900/80 mt-0.5 block leading-relaxed">Виден всем ученикам школы (и обычным, и отстающим). Используется для ознакомления до распределения.</span>
+                                                </span>
+                                            </label>
+                                            {/* Целевой */}
+                                            <label className="flex items-start gap-3 p-3 rounded-xl border border-emerald-100 bg-emerald-50/60 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="courseType"
+                                                    className="mt-0.5 text-emerald-600 focus:ring-emerald-400"
+                                                    checked={!activeCourse.is_introduction && !activeCourse.for_lagging_students}
+                                                    disabled={laggingFlagSaving}
+                                                    onChange={async () => {
+                                                        if (!activeCourse) return;
+                                                        setLaggingFlagSaving(true);
+                                                        try {
+                                                            if (activeCourse.is_introduction) await coursesApi.patchIsIntroduction(activeCourse.id, false);
+                                                            if (activeCourse.for_lagging_students) await coursesApi.patchForLaggingStudents(activeCourse.id, false);
+                                                            const next = { ...activeCourse, is_introduction: false, for_lagging_students: false };
+                                                            setActiveCourse(next);
+                                                            await loadAllCourses();
+                                                            toast.success('Курс помечен как целевой');
+                                                        } catch (err: any) { toast.error(err.response?.data?.message ?? 'Ошибка'); }
+                                                        finally { setLaggingFlagSaving(false); }
+                                                    }}
+                                                />
+                                                <span className="text-xs text-emerald-950">
+                                                    <span className="font-semibold block">Целевой курс</span>
+                                                    <span className="text-emerald-900/80 mt-0.5 block leading-relaxed">Виден только не-отстающим ученикам. На него переводят из рейтинга вручную.</span>
+                                                </span>
+                                            </label>
+                                            {/* Для отстающих */}
+                                            <label className="flex items-start gap-3 p-3 rounded-xl border border-amber-100 bg-amber-50/60 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="courseType"
+                                                    className="mt-0.5 text-amber-600 focus:ring-amber-400"
+                                                    checked={!!activeCourse.for_lagging_students}
+                                                    disabled={laggingFlagSaving}
+                                                    onChange={async () => {
+                                                        if (!activeCourse) return;
+                                                        setLaggingFlagSaving(true);
+                                                        try {
+                                                            await coursesApi.patchForLaggingStudents(activeCourse.id, true);
+                                                            if (activeCourse.is_introduction) await coursesApi.patchIsIntroduction(activeCourse.id, false);
+                                                            const next = { ...activeCourse, for_lagging_students: true, is_introduction: false };
+                                                            setActiveCourse(next);
+                                                            await loadAllCourses();
+                                                            toast.success('Включён режим курса для отстающих');
+                                                        } catch (err: any) { toast.error(err.response?.data?.message ?? 'Ошибка'); }
+                                                        finally { setLaggingFlagSaving(false); }
+                                                    }}
+                                                />
+                                                <span className="text-xs text-amber-950">
+                                                    <span className="font-semibold block">Курс для отстающих</span>
+                                                    <span className="text-amber-900/80 mt-0.5 block leading-relaxed">Ученики с отметкой «отстающий» автоматически получают здесь группу после проверки дедлайнов.</span>
+                                                </span>
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

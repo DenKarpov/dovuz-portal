@@ -14,6 +14,8 @@ export interface CourseShortResponse {
     is_active: boolean;
     /** Автогруппы для учеников с отметкой отстающий по школам курса */
     for_lagging_students?: boolean;
+    /** Вводный курс: виден всем ученикам школы */
+    is_introduction?: boolean;
     lesson_count: number;
     created_at: string;
 }
@@ -47,6 +49,7 @@ export interface CourseResponse {
     schools: CourseSchoolRef[];
     is_active: boolean;
     for_lagging_students?: boolean;
+    is_introduction?: boolean;
     created_at: string;
     lessons: CourseLessonResponse[];
 }
@@ -201,6 +204,12 @@ export interface CourseModeratorResponse {
     nickname: string;
     course_id: number;
     course_name: string;
+    course_description?: string;
+    course_schools?: CourseSchoolRef[];
+    is_active?: boolean;
+    is_introduction?: boolean;
+    for_lagging_students?: boolean;
+    lesson_count?: number;
     assigned_at: string;
 }
 
@@ -291,6 +300,11 @@ export const coursesApi = {
     patchForLaggingStudents: (courseId: number, forLaggingStudents: boolean) =>
         api.patch<CourseResponse>(`/courses/${courseId}/for-lagging-students`, {
             for_lagging_students: forLaggingStudents,
+        }),
+
+    patchIsIntroduction: (courseId: number, isIntroduction: boolean) =>
+        api.patch<CourseResponse>(`/courses/${courseId}/is-introduction`, {
+            is_introduction: isIntroduction,
         }),
 
     adminAddLesson: (courseId: number, data: CreateLessonRequest) =>
@@ -404,6 +418,8 @@ export const coursesApi = {
             grade,
             new_status: newStatus,
         }),
+    getModeratedCourse: (courseId: number) =>
+        api.get<CourseResponse>(`/courses/moderated/${courseId}`),
 
     /** Комментарий ученика по слушанию (переписка) */
     addHearingComment: (submissionId: number, comment: string) =>

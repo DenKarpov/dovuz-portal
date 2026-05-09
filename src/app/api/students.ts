@@ -56,7 +56,11 @@ export const studentsApi = {
     unmarkLagging: (accountId: number) =>
         api.post(`/students/lagging/${accountId}/unmark`),
 
-    /** Перенести отстающего ученика в курс для отстающих */
+    /** Перевести ученика на целевой курс (любой статус — обычный или отстающий) */
+    transferToCourse: (accountId: number, targetCourseId: number) =>
+        api.post(`/students/${accountId}/transfer`, { target_course_id: targetCourseId }),
+
+    /** @deprecated Используйте transferToCourse */
     transferToLaggingCourse: (accountId: number, targetCourseId: number) =>
-        api.post(`/students/lagging/${accountId}/transfer`, { target_course_id: targetCourseId }),
+        api.post(`/students/${accountId}/transfer`, { target_course_id: targetCourseId }),
 };

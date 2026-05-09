@@ -15,10 +15,11 @@ const CHART_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var
 export interface ModeratorCourseStatsProps {
   courseId: number;
   forLaggingStudents?: boolean;
+  isIntroduction?: boolean;
   lessons: CourseLessonResponse[];
 }
 
-export const ModeratorCourseStats: React.FC<ModeratorCourseStatsProps> = ({ courseId, forLaggingStudents, lessons }) => {
+export const ModeratorCourseStats: React.FC<ModeratorCourseStatsProps> = ({ courseId, forLaggingStudents, isIntroduction, lessons }) => {
   const [loading, setLoading] = useState(true);
   const [studentCount, setStudentCount] = useState<number | null>(null);
   const [submissions, setSubmissions] = useState<LessonSubmissionResponse[]>([]);
@@ -106,9 +107,9 @@ export const ModeratorCourseStats: React.FC<ModeratorCourseStatsProps> = ({ cour
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard
               icon={<School className="size-5 text-primary" />}
-              label={forLaggingStudents ? 'Отстающих в курсе' : 'Учеников в курсе'}
+              label={forLaggingStudents ? 'Отстающих в курсе' : isIntroduction ? 'Учеников (вводный курс)' : 'Учеников в курсе'}
               value={studentCount == null ? '—' : String(studentCount)}
-              hint="Все ученики школ курса по данным сводной таблицы"
+              hint={forLaggingStudents ? 'Ученики с флагом отстающий' : isIntroduction ? 'Все ученики школ курса' : 'Ученики, переведённые на целевой курс'}
           />
           <StatCard
               icon={<Users className="size-5 text-primary" />}

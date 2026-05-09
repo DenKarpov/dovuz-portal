@@ -47,7 +47,29 @@ export const StudentRatingPage: React.FC = () => {
 
   useEffect(() => {
     if (!isModerator) { toast.error('Недостаточно прав'); navigate('/'); return; }
-    schoolsApi.getAll().then(r => setSchools(r.data)).catch(() => {});
+
+    // Для модератора загружаем только школы доступных ему курсов
+    const loadSchools = async () => {
+      try {
+        const modCourses = await coursesApi.myAssignedCourses();
+        const schoolSet = new Map<number, SchoolResponse>();
+        (modCourses.data ?? []).forEach(mc => {
+          (mc.course_schools ?? []).forEach(s => {
+            if (!schoolSet.has(s.id)) schoolSet.set(s.id, { id: s.id, name: s.name } as SchoolResponse);
+          });
+        });
+        if (schoolSet.size > 0) {
+          setSchools(Array.from(schoolSet.values()));
+        } else {
+          // Fallback: admin или нет курсов — все школы
+          const all = await schoolsApi.getAll();
+          setSchools(all.data);
+        }
+      } catch {
+        schoolsApi.getAll().then(r => setSchools(r.data)).catch(() => {});
+      }
+    };
+    loadSchools();
   }, [isModerator, navigate]);
 
   useEffect(() => {
@@ -141,13 +163,27 @@ export const StudentRatingPage: React.FC = () => {
   };
 
   // Open transfer modal: load courses
-  const loadCourses = async () => {
+  const loadCourses = async (student?: StudentRatingResponse) => {
     setCoursesLoading(true);
     try {
       const res = await coursesApi.adminGetAll(0, 200);
       const all = res.data.content ?? [];
-      const marked = all.filter(c => c.for_lagging_students);
-      setCourses(marked.length > 0 ? marked : all);
+
+      // Только целевые курсы: не вводные, не для отстающих
+      let target = all.filter(c => !c.for_lagging_students && !c.is_introduction);
+
+      // Если знаем школу ученика — фильтруем только курсы этой школы
+      if (student?.school_name) {
+        const schoolFiltered = target.filter(c =>
+            c.schools?.some(s => s.name === student.school_name)
+        );
+        // Если для школы нашлись курсы — используем их, иначе показываем все целевые
+        if (schoolFiltered.length > 0) {
+          target = schoolFiltered;
+        }
+      }
+
+      setCourses(target.length > 0 ? target : all.filter(c => !c.for_lagging_students && !c.is_introduction));
     } catch {
       toast.error('Не удалось загрузить список курсов');
       setCourses([]);
@@ -159,20 +195,23 @@ export const StudentRatingPage: React.FC = () => {
   const openTransferModal = async (s: StudentRatingResponse) => {
     setTransferStudent(s);
     setSelectedCourseId('');
-    await loadCourses();
+    await loadCourses(s);
   };
 
   const openBulkTransferModal = async () => {
     setBulkTransferOpen(true);
     setSelectedCourseId('');
-    await loadCourses();
+    // Для массового переноса берём первого выбранного ученика для фильтра по школе
+    const firstId = Array.from(bulkTransferIds)[0];
+    const firstStudent = students.find(s => s.account_id === firstId);
+    await loadCourses(firstStudent);
   };
 
   const handleTransfer = async () => {
     if (!transferStudent || !selectedCourseId) return;
     setTransferring(true);
     try {
-      await studentsApi.transferToLaggingCourse(transferStudent.account_id, Number(selectedCourseId));
+      await studentsApi.transferToCourse(transferStudent.account_id, Number(selectedCourseId));
       toast.success(`${studentName(transferStudent)} перенесён в курс для отстающих`);
       setTransferStudent(null);
       fetchData(page);
@@ -189,7 +228,7 @@ export const StudentRatingPage: React.FC = () => {
     setTransferring(true);
     let failed = 0;
     for (const id of Array.from(bulkTransferIds)) {
-      try { await studentsApi.transferToLaggingCourse(id, Number(selectedCourseId)); }
+      try { await studentsApi.transferToCourse(id, Number(selectedCourseId)); }
       catch { failed++; }
     }
     setTransferring(false);
@@ -245,7 +284,7 @@ export const StudentRatingPage: React.FC = () => {
                 {tab === 'lagging' ? `Отстающих: ${totalStudents}` : `Учеников: ${totalStudents}`}
             </span>
           )}
-          {tab === 'lagging' && bulkTransferIds.size > 0 && (
+          {bulkTransferIds.size > 0 && (
               <button
                   onClick={openBulkTransferModal}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-semibold shadow-sm hover:opacity-90 transition"
@@ -340,7 +379,7 @@ export const StudentRatingPage: React.FC = () => {
                 <table className="w-full text-sm">
                   <thead>
                   <tr className="border-b border-border bg-muted/40">
-                    {tab === 'lagging' && (
+                    {(
                         <th className="px-3 py-3 w-8">
                           <input
                               type="checkbox"
@@ -360,15 +399,15 @@ export const StudentRatingPage: React.FC = () => {
                     <th className="px-3 py-3 text-center font-medium text-muted-foreground">Проекты</th>
                     <th className="px-3 py-3 text-center font-medium text-muted-foreground">Общий</th>
                     <th className="px-3 py-3 text-center font-medium text-muted-foreground">Статус</th>
-                    {tab === 'lagging' && (
+                    {(
                         <th className="px-3 py-3 text-center font-medium text-muted-foreground">Действия</th>
                     )}
                   </tr>
                   </thead>
                   <tbody>
                   {filteredStudents.map(s => (
-                      <tr key={s.account_id} onClick={() => navigate(`/profile/${s.nickname}`)} className={`border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer ${tab === 'lagging' && bulkTransferIds.has(s.account_id) ? 'bg-primary/5' : ''}`}>
-                        {tab === 'lagging' && (
+                      <tr key={s.account_id} onClick={() => navigate(`/profile/${s.nickname}`)} className={`border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer ${bulkTransferIds.has(s.account_id) ? 'bg-primary/5' : ''}`}>
+                        {(
                             <td className="px-3 py-3 w-8" onClick={e => e.stopPropagation()}>
                               <input
                                   type="checkbox"
@@ -420,7 +459,7 @@ export const StudentRatingPage: React.FC = () => {
                               </span>
                           )}
                         </td>
-                        {tab === 'lagging' && (
+                        {(
                             <td className="px-3 py-3 text-center">
                               <button
                                   onClick={(e) => {
@@ -428,7 +467,7 @@ export const StudentRatingPage: React.FC = () => {
                                     openTransferModal(s);
                                   }}
                                   className="flex items-center gap-1 px-2.5 py-1.5 bg-primary/10 text-primary text-xs font-semibold rounded-lg hover:bg-primary/15 transition-colors border border-primary/20"
-                                  title="Перевести в курс для отстающих"
+                                  title="Перевести на целевой курс"
                               >
                                 <ArrowRightLeft className="size-3" />
                                 Перевести
@@ -502,7 +541,7 @@ export const StudentRatingPage: React.FC = () => {
               <div className="bg-card rounded-2xl shadow-xl border border-border w-full max-w-md p-6 mx-4" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">Перевести в курс для отстающих</h3>
+                    <h3 className="text-lg font-semibold text-foreground">Перевести на целевой курс</h3>
                     <p className="text-xs text-muted-foreground mt-1">
                       {studentName(transferStudent)} ({transferStudent.school_name ?? '—'}, {transferStudent.class_name ?? '—'})
                     </p>

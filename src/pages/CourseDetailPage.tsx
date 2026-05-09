@@ -371,7 +371,7 @@ export const CourseDetailPage: React.FC = () => {
                       <ModeratorCoursePanel courseId={Number(courseId)} mode="edit" />
                   ) : (
                       <div className="space-y-6">
-                        <ModeratorCourseStats courseId={Number(courseId)} forLaggingStudents={course.for_lagging_students === true} lessons={course.lessons} />
+                        <ModeratorCourseStats courseId={Number(courseId)} forLaggingStudents={course.for_lagging_students === true} isIntroduction={course.is_introduction === true} lessons={course.lessons} />
                         <ModeratorCoursePanel courseId={Number(courseId)} mode="review" />
                       </div>
                   )
