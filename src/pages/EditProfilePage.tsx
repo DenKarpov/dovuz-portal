@@ -19,7 +19,10 @@ const PWD_RULES: PwdRule[] = [
   { label: 'Хотя бы одна строчная буква',  test: (p) => /[a-zа-яё]/.test(p) },
   { label: 'Хотя бы одна цифра',           test: (p) => /\d/.test(p) },
 ];
+
+const STRENGTH_LABELS_EP = ['', 'Слабый', 'Средний', 'Хороший', 'Отличный'];
 const STRENGTH_COLORS_EP = ['', 'bg-red-500', 'bg-orange-400', 'bg-yellow-400', 'bg-emerald-500'];
+const STRENGTH_TEXT_EP   = ['', 'text-red-500', 'text-orange-500', 'text-yellow-600', 'text-emerald-600'];
 
 function calcStrengthEP(p: string) { return PWD_RULES.filter(r => r.test(p)).length; }
 
@@ -27,7 +30,12 @@ function PwdStrengthBar({ password }: { password: string }) {
   const s = calcStrengthEP(password);
   if (!password) return null;
   return (
-      <div className="mt-1.5 space-y-1">
+      <motion.div
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          className="mt-1.5 space-y-1"
+      >
         <div className="flex gap-1">
           {[1,2,3,4].map(i => (
               <div key={i} className="h-1 flex-1 rounded-full bg-slate-200 overflow-hidden">
@@ -40,7 +48,12 @@ function PwdStrengthBar({ password }: { password: string }) {
               </div>
           ))}
         </div>
-      </div>
+        {s > 0 && (
+            <p className={`text-xs font-medium ${STRENGTH_TEXT_EP[s]}`}>
+              {STRENGTH_LABELS_EP[s]}
+            </p>
+        )}
+      </motion.div>
   );
 }
 
@@ -58,7 +71,9 @@ function PwdRules({ password, show }: { password: string; show: boolean }) {
             const ok = rule.test(password);
             return (
                 <li key={rule.label} className="flex items-center gap-1.5 text-xs">
-                  {ok ? <Check className="size-3.5 text-emerald-500 shrink-0" /> : <X className="size-3.5 text-slate-300 shrink-0" />}
+                  {ok
+                      ? <Check className="size-3.5 text-emerald-500 shrink-0" />
+                      : <X className="size-3.5 text-slate-300 shrink-0" />}
                   <span className={ok ? 'text-emerald-600' : 'text-slate-400'}>{rule.label}</span>
                 </li>
             );
@@ -372,7 +387,7 @@ export const EditProfilePage: React.FC = () => {
                   </button>
                 </div>
 
-                {/* New password + strength */}
+                {/* New password + strength + rules */}
                 <div>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
@@ -393,32 +408,48 @@ export const EditProfilePage: React.FC = () => {
                   <AnimatePresence>
                     {pwdNew.length > 0 && <PwdStrengthBar password={pwdNew} />}
                   </AnimatePresence>
+                  {/* Показываем правила пока поле в фокусе ИЛИ пока есть текст и не все правила выполнены */}
                   <PwdRules password={pwdNew} show={pwdNewFocused || (pwdNew.length > 0 && !allNewRulesPass)} />
                 </div>
 
                 {/* Confirm password */}
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-                  <input
-                      type={showPwdConfirm ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      placeholder="Подтверждение нового пароля"
-                      value={pwdConfirm}
-                      onChange={(e) => setPwdConfirm(e.target.value)}
-                      className={"w-full border rounded-xl pl-10 pr-10 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 " + (pwdConfirm && pwdConfirm !== pwdNew ? 'border-red-300' : 'border-gray-200')}
-                  />
-                  <button type="button" onClick={() => setShowPwdConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
-                    {showPwdConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                  {pwdConfirm && pwdConfirm !== pwdNew && (
-                      <p className="text-xs text-red-500 mt-1">Пароли не совпадают</p>
+                <div>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <input
+                        type={showPwdConfirm ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        placeholder="Подтверждение нового пароля"
+                        value={pwdConfirm}
+                        onChange={(e) => setPwdConfirm(e.target.value)}
+                        className={
+                            "w-full border rounded-xl pl-10 pr-10 py-3 text-base bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 " +
+                            (pwdConfirm.length > 0
+                                ? pwdConfirm === pwdNew
+                                    ? 'border-emerald-400 focus:ring-emerald-400'
+                                    : 'border-red-300 focus:ring-red-400'
+                                : 'border-gray-200')
+                        }
+                    />
+                    <button type="button" onClick={() => setShowPwdConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                      {showPwdConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                  {/* Индикатор совпадения под полем */}
+                  {pwdConfirm.length > 0 && (
+                      <p className={`text-xs mt-1 flex items-center gap-1 ${pwdConfirm === pwdNew ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {pwdConfirm === pwdNew
+                            ? <><Check className="size-3.5" /> Пароли совпадают</>
+                            : <><X className="size-3.5" /> Пароли не совпадают</>}
+                      </p>
                   )}
                 </div>
+
                 <button
                     type="button"
                     onClick={handlePasswordChange}
-                    disabled={pwdSaving}
-                    className="w-full py-3 rounded-xl border border-border font-medium text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
+                    disabled={pwdSaving || !pwdCurrent.trim() || !allNewRulesPass || pwdNew !== pwdConfirm}
+                    className="w-full py-3 rounded-xl border border-border font-medium text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {pwdSaving ? 'Сохранение…' : 'Обновить пароль'}
                 </button>

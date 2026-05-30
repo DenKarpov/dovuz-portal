@@ -105,6 +105,18 @@ export const CompleteProfilePage: React.FC = () => {
     };
 
     const handleSave = async () => {
+        if (!form.firstName.trim() || !form.lastName.trim() || !form.middleName.trim()) {
+            toast.error('Пожалуйста, заполните ФИО (фамилия, имя, отчество)');
+            return;
+        }
+        if (showSchool && !schoolId) {
+            toast.error('Пожалуйста, выберите школу');
+            return;
+        }
+        if (showSchool && !classId) {
+            toast.error('Пожалуйста, выберите класс');
+            return;
+        }
         setSaving(true);
         try {
             const fd = new FormData();
@@ -173,7 +185,7 @@ export const CompleteProfilePage: React.FC = () => {
                     </div>
                 </motion.div>
 
-                
+
                 {/* Steps nav */}
                 <div className="flex items-center gap-2 mb-8">
                     {ACTIVE_STEPS.map((s, i) => (
@@ -353,13 +365,13 @@ export const CompleteProfilePage: React.FC = () => {
                     )}
                 </div>
 
-                {/* Skip */}
-                <button
-                    onClick={() => navigate('/')}
-                    className="w-full mt-4 text-slate-500 text-sm hover:text-slate-300 transition-colors py-2"
-                >
-                    Пропустить и заполнить позже
-                </button>
+                {/*/!* Skip *!/*/}
+                {/*<button*/}
+                {/*    onClick={() => navigate('/')}*/}
+                {/*    className="w-full mt-4 text-slate-500 text-sm hover:text-slate-300 transition-colors py-2"*/}
+                {/*>*/}
+                {/*    Пропустить и заполнить позже*/}
+                {/*</button>*/}
             </div>
         </div>
     );

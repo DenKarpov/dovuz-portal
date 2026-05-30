@@ -61,8 +61,7 @@ export const CourseDetailPage: React.FC = () => {
   const [hearingPointsTotal, setHearingPointsTotal] = useState(0);
   /** Кол-во принятых этапов слушаний (для прогресса) */
   const [hearingAcceptedCount, setHearingAcceptedCount] = useState(0);
-
-  const fetchData = useCallback(async () => {
+   const fetchData = useCallback(async () => {
     if (!courseId) return;
     setLoading(true);
     try {
@@ -179,10 +178,19 @@ export const CourseDetailPage: React.FC = () => {
 
   const regularLessons = course.lessons.filter(l => l.category !== 'HEARING');
   const hearingLessons = course.lessons.filter(l => l.category === 'HEARING');
+
+  /** Вводный курс — слушания скрыты везде */
+  const isIntroduction = course.is_introduction === true;
+
+  // Если на вкладке слушаний оказались на вводном курсе — возвращаем на уроки
+  if (isIntroduction && mainTab === 'hearings') {
+    setMainTab('lessons');
+  }
   const lessonMaxPoints = (l: CourseLessonResponse) => {
     const lc = lessonCriteria.get(l.id);
     return lc && lc.length > 0 ? lc.reduce((s, c) => s + c.max_points, 0) : l.max_score;
   };
+
 
   const completedRegular = regularLessons.filter(l => submissions.get(l.id)?.status === 'ACCEPTED').length;
   const completedCount = completedRegular + hearingAcceptedCount;
@@ -295,19 +303,21 @@ export const CourseDetailPage: React.FC = () => {
           >
             <BookOpenCheck className="size-4" /> Уроки
           </button>
-          <button
-              type="button"
-              role="tab"
-              aria-selected={mainTab === 'hearings'}
-              onClick={() => setMainTab('hearings')}
-              className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all flex items-center gap-2 ${
-                  mainTab === 'hearings'
-                      ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                      : 'bg-card text-muted-foreground border-border hover:bg-muted'
-              }`}
-          >
-            <Presentation className="size-4" /> Слушания (проект)
-          </button>
+          {!isIntroduction && (
+              <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mainTab === 'hearings'}
+                  onClick={() => setMainTab('hearings')}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all flex items-center gap-2 ${
+                      mainTab === 'hearings'
+                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                          : 'bg-card text-muted-foreground border-border hover:bg-muted'
+                  }`}
+              >
+                <Presentation className="size-4" /> Слушания (проект)
+              </button>
+          )}
           {isModeratorOnly && (
               <button
                   type="button"
@@ -687,6 +697,8 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
   const [groupsTotalPages, setGroupsTotalPages] = useState(0);
   const [allGroupsPaginated, setAllGroupsPaginated] = useState<CourseGroupResponse[]>([]);
   const GROUPS_PER_PAGE = 6;
+  const [enrolledStudentIds, setEnrolledStudentIds] = useState<Set<number>>(new Set());
+  const [loadingEnrolled, setLoadingEnrolled] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -782,22 +794,27 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
   };
 
   // Загрузка одноклассников с пагинацией (для ученика)
-  const loadClassPeers = async (classId: number, pageNum: number = 0) => {
+  const loadClassPeers = useCallback(async (classId: number, pageNum: number = 0) => {
     setPeersLoading(true);
     try {
       const res = await accountsApi.getByClass(classId, pageNum, 20);
-      // В курсе для отстающих — показываем только отстающих одноклассников
+
+      const hasEnrolledData = enrolledStudentIds.size > 0;
+
       const peers = (res.data.content ?? []).filter(
           u => u.role === 'Пользователь'
               && u.nickname !== user?.nickname
-              && (!forLaggingStudents || u.is_lagging === true),
+              // Для lagging-курса показываем только отстающих, для целевого - только не отстающих
+              && (forLaggingStudents ? u.is_lagging === true : u.is_lagging !== true)
+              && (!hasEnrolledData || enrolledStudentIds.has(u.id))
       );
+
       if (pageNum === 0) {
         setAllClassPeers(peers);
         if (peers.length === 0) {
           setPeerHint(forLaggingStudents
-              ? 'Нет других отстающих одноклассников в системе.'
-              : 'В классе нет других учеников в системе.');
+              ? 'Нет других отстающих одноклассников, зачисленных на этот курс.'
+              : 'В классе нет других учеников, зачисленных на этот курс.');
         } else {
           setPeerHint(null);
         }
@@ -811,7 +828,7 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
     } finally {
       setPeersLoading(false);
     }
-  };
+  }, [enrolledStudentIds, user?.nickname, forLaggingStudents]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -828,12 +845,18 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
         }
         return;
       }
-      if (!cancelled) loadClassPeers(cid, 0);
+      // Ждём загрузки enrolledStudentIds перед фильтрацией одноклассников
+      if (!cancelled) {
+        // Небольшая задержка, чтобы enrolledStudentIds успел загрузиться
+        setTimeout(() => {
+          if (!cancelled) loadClassPeers(cid, 0);
+        }, 300);
+      }
     }).catch(() => {
       if (!cancelled) { setAllClassPeers([]); setPeerHint(null); }
     });
     return () => { cancelled = true; };
-  }, [isModeratorOnly, user?.nickname, forLaggingStudents]);
+  }, [isModeratorOnly, user?.nickname, forLaggingStudents, enrolledStudentIds.size]); // ✅ добавить enrolledStudentIds.size
 
   // Загрузка учеников при выборе школы
   useEffect(() => {
@@ -857,9 +880,17 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
     }
   }, [myGroup?.id, myGroup?.title, myGroup?.description]);
 
+
   const handleCreateMyGroup = async () => {
     const t = studentTopicTitle.trim();
     if (!t) return toast.error('Введите тему');
+
+    // Проверяем, не занята ли тема другой группой
+    const takenTitles = new Set(allGroups.map(g => g.title.trim().toLowerCase()));
+    if (takenTitles.has(t.toLowerCase())) {
+      return toast.error('Эта тема уже выбрана другой группой. Пожалуйста, придумайте другое название.');
+    }
+
     setCreatingMyGroup(true);
     try {
       const r = await courseGroupsApi.createMyGroup(courseId, {
@@ -1022,6 +1053,25 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
     } catch (err: any) { toast.error(err.response?.data?.message ?? 'Ошибка'); }
     finally { setSavingGroup(false); }
   };
+  const loadEnrolledStudents = useCallback(async () => {
+    setLoadingEnrolled(true);
+    try {
+      const summary = await coursesApi.getCourseSummary(courseId);
+      const enrolledIds = new Set<number>();
+      summary.data.students.forEach(s => {
+        if (s.account_id) {
+          enrolledIds.add(s.account_id);
+        }
+      });
+      setEnrolledStudentIds(enrolledIds);
+    } catch (error) {
+      console.error('Ошибка загрузки зачисленных учеников:', error);
+      // В случае ошибки показываем всех (не фильтруем)
+      setEnrolledStudentIds(new Set());
+    } finally {
+      setLoadingEnrolled(false);
+    }
+  }, [courseId]);
 
   const openEditGroup = (g: CourseGroupResponse) => {
     setEditingGroup(g);
@@ -1031,6 +1081,12 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
     setSelectedStudents(g.members.map(m => m.account_id));
     setShowGroupForm(true);
   };
+  // Добавить useEffect для загрузки при монтировании (после других useEffect)
+  useEffect(() => {
+    if (!isModeratorOnly && courseId) {
+      loadEnrolledStudents();
+    }
+  }, [isModeratorOnly, courseId, loadEnrolledStudents]);
 
   if (loading) {
     return <div className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-20 bg-muted rounded-2xl animate-pulse" />)}</div>;
@@ -1039,7 +1095,6 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
   const activeHearingSub = activeHearing ? studentHearingSubs.get(activeHearing.id) : undefined;
   const activeLessonSub = activeHearing ? studentSubmissions.get(activeHearing.id) : null;
   const activeCriteria = activeHearing ? (lessonCriteria.get(activeHearing.id) ?? []) : [];
-
   return (
       <div className="space-y-6">
         {/* Moderator: manage groups */}
@@ -1302,6 +1357,12 @@ const HearingsTab: React.FC<HearingsTabProps> = ({ courseId, lessons, isModerato
                           placeholder="Тема проекта"
                           className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-card focus:ring-2 focus:ring-primary outline-none"
                       />
+                      {studentTopicTitle.trim() && allGroups.some(g => g.title.trim().toLowerCase() === studentTopicTitle.trim().toLowerCase()) && (
+                          <p className="text-xs text-red-500 flex items-center gap-1">
+                            <AlertCircle className="size-3.5 shrink-0" />
+                            Эта тема уже выбрана другой группой
+                          </p>
+                      )}
                       <textarea
                           value={studentTopicDesc}
                           onChange={(e) => setStudentTopicDesc(e.target.value)}

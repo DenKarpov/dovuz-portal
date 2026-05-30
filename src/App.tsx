@@ -22,6 +22,7 @@ import { CourseDetailPage } from './pages/CourseDetailPage';
 import { IdeaBankPage } from './pages/IdeaBankPage';
 import { StudentRatingPage } from './pages/StudentRatingPage';
 import { AdminCourseWorksPage } from './pages/AdminCourseWorksPage';
+import { CompleteProfilePage } from './pages/CompleteProfilePage';
 
 export default function App() {
   return (
@@ -66,6 +67,7 @@ export default function App() {
               </Route>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/complete-profile" element={<CompleteProfilePage />} />
             </Routes>
           </BrowserRouter>
         </AuthProvider>

@@ -68,10 +68,18 @@ export const ModeratorCourseStats: React.FC<ModeratorCourseStatsProps> = ({ cour
   }));
 
   const perLesson: Record<number, { title: string; count: number; order: number }> = {};
-  lessons.forEach((l) => {
+  const displayLessons = isIntroduction
+      ? lessons.filter(l => l.category !== 'HEARING')
+      : lessons;
+  displayLessons.forEach((l) => {
     perLesson[l.id] = { title: l.title, count: 0, order: l.order_number };
   });
   submissions.forEach((s) => {
+    // For introductory courses skip hearing-related submissions
+    if (isIntroduction) {
+      const lesson = lessons.find(l => l.id === s.lesson_id);
+      if (lesson?.category === 'HEARING') return;
+    }
     if (!perLesson[s.lesson_id]) {
       perLesson[s.lesson_id] = {
         title: s.lesson_title || `Урок #${s.lesson_id}`,

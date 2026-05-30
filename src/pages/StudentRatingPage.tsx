@@ -44,11 +44,23 @@ export const StudentRatingPage: React.FC = () => {
   const [coursesLoading, setCoursesLoading] = useState(false);
 
   const [workModal, setWorkModal] = useState<{ title: string; snippet: RatingWorkSnippet } | null>(null);
-
+  const [allCoursesMap, setAllCoursesMap] = useState<Map<number, string>>(new Map());
+  const [coursesPopup, setCoursesPopup] = useState<{ studentId: number; names: string[]; courseIds: number[] } | null>(null);
+  const [forcedCoursesMap, setForcedCoursesMap] = useState<Map<number, Set<number>>>(new Map());
   useEffect(() => {
     if (!isModerator) { toast.error('Недостаточно прав'); navigate('/'); return; }
 
     // Для модератора загружаем только школы доступных ему курсов
+    const loadAllCoursesMap = async () => {
+      try {
+        const res = await coursesApi.adminGetAll(0, 500);
+        const map = new Map<number, string>();
+        (res.data.content ?? []).forEach(c => map.set(c.id, c.name));
+        setAllCoursesMap(map);
+      } catch { /* ignore */ }
+    };
+    loadAllCoursesMap();
+
     const loadSchools = async () => {
       try {
         const modCourses = await coursesApi.myAssignedCourses();
@@ -93,8 +105,19 @@ export const StudentRatingPage: React.FC = () => {
       const res = tab === 'lagging'
           ? await studentsApi.getLagging(schoolParam, pageNum, pageSize)
           : await studentsApi.getRatings(schoolParam, pageNum, pageSize, selectedClass ? Number(selectedClass) : undefined);
-      setStudents(res.data.content);
-      // When searching, hide pagination (total is filtered count)
+
+      const studentsData = res.data.content;
+      setStudents(studentsData);
+
+      // Заполняем карту принудительных назначений
+      const newForcedMap = new Map<number, Set<number>>();
+      studentsData.forEach(s => {
+        if (s.forced_course_ids && s.forced_course_ids.length > 0) {
+          newForcedMap.set(s.account_id, new Set(s.forced_course_ids));
+        }
+      });
+      setForcedCoursesMap(newForcedMap);
+
       setTotalPages(isSearching ? 0 : res.data.total_pages);
       setTotalStudents(res.data.total_size ?? null);
       setPage(isSearching ? 0 : pageNum);
@@ -163,27 +186,47 @@ export const StudentRatingPage: React.FC = () => {
   };
 
   // Open transfer modal: load courses
+
   const loadCourses = async (student?: StudentRatingResponse) => {
     setCoursesLoading(true);
     try {
       const res = await coursesApi.adminGetAll(0, 200);
       const all = res.data.content ?? [];
 
-      // Только целевые курсы: не вводные, не для отстающих
-      let target = all.filter(c => !c.for_lagging_students && !c.is_introduction);
+      const groupEnrolledIds = student?.enrolled_course_ids ?? [];
+      const forcedEnrolledIdsSet = forcedCoursesMap.get(student?.account_id ?? 0);
+      const forcedEnrolledIdsArray: number[] = forcedEnrolledIdsSet ? Array.from(forcedEnrolledIdsSet) : [];
+      const alreadyEnrolledIds = new Set<number>([...groupEnrolledIds, ...forcedEnrolledIdsArray]);
+
+      let target: CourseShortResponse[] = [];
+
+      // ✅ Если ученик отстающий - показываем только курсы для отстающих
+      if (student?.is_lagging) {
+        target = all.filter(c =>
+            c.for_lagging_students === true &&
+            c.is_active === true &&
+            !alreadyEnrolledIds.has(c.id)
+        );
+      } else {
+        // Обычный ученик - только целевые курсы (не вводные, не для отстающих)
+        target = all.filter(c =>
+            !c.for_lagging_students &&
+            !c.is_introduction &&
+            !alreadyEnrolledIds.has(c.id)
+        );
+      }
 
       // Если знаем школу ученика — фильтруем только курсы этой школы
-      if (student?.school_name) {
+      if (student?.school_name && target.length > 0) {
         const schoolFiltered = target.filter(c =>
             c.schools?.some(s => s.name === student.school_name)
         );
-        // Если для школы нашлись курсы — используем их, иначе показываем все целевые
         if (schoolFiltered.length > 0) {
           target = schoolFiltered;
         }
       }
 
-      setCourses(target.length > 0 ? target : all.filter(c => !c.for_lagging_students && !c.is_introduction));
+      setCourses(target);
     } catch {
       toast.error('Не удалось загрузить список курсов');
       setCourses([]);
@@ -212,7 +255,7 @@ export const StudentRatingPage: React.FC = () => {
     setTransferring(true);
     try {
       await studentsApi.transferToCourse(transferStudent.account_id, Number(selectedCourseId));
-      toast.success(`${studentName(transferStudent)} перенесён в курс для отстающих`);
+      toast.success(`${studentName(transferStudent)} перенесён на курс`);
       setTransferStudent(null);
       fetchData(page);
     } catch (err: any) {
@@ -406,7 +449,7 @@ export const StudentRatingPage: React.FC = () => {
                   </thead>
                   <tbody>
                   {filteredStudents.map(s => (
-                      <tr key={s.account_id} onClick={() => navigate(`/profile/${s.nickname}`)} className={`border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer ${bulkTransferIds.has(s.account_id) ? 'bg-primary/5' : ''}`}>
+                      <tr key={s.account_id} onClick={() => { navigate(`/profile/${s.nickname}`); setCoursesPopup(null); }} className={`relative border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer ${bulkTransferIds.has(s.account_id) ? 'bg-primary/5' : ''}`}>
                         {(
                             <td className="px-3 py-3 w-8" onClick={e => e.stopPropagation()}>
                               <input
@@ -429,6 +472,85 @@ export const StudentRatingPage: React.FC = () => {
                         </td>
                         <td className="px-3 py-3 text-muted-foreground">{s.school_name ?? '—'}</td>
                         <td className="px-3 py-3 text-muted-foreground">{s.class_name ?? '—'}</td>
+                        <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
+                          {(() => {
+                            const groupIds: number[] = s.enrolled_course_ids ?? [];
+                            const forcedIdsSet: Set<number> | undefined = forcedCoursesMap.get(s.account_id);
+
+                            const allCourseIds: number[] = [...groupIds];
+                            if (forcedIdsSet) {
+                              forcedIdsSet.forEach(id => {
+                                if (!allCourseIds.includes(id)) {
+                                  allCourseIds.push(id);
+                                }
+                              });
+                            }
+
+                            if (allCourseIds.length > 0) {
+                              return (
+                                  <button
+                                      type="button"
+                                      onClick={() => {
+                                        const names = allCourseIds.map(id => allCoursesMap.get(id) ?? `Курс #${id}`);
+                                        setCoursesPopup({ studentId: s.account_id, names, courseIds: allCourseIds });
+                                      }}
+                                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 transition-colors"
+                                  >
+                                    <BookOpen className="size-3" />
+                                    {allCourseIds.length}
+                                  </button>
+                              );
+                            }
+                            return <span className="text-muted-foreground text-xs">—</span>;
+                          })()}
+                          {coursesPopup?.studentId === s.account_id && (
+                              <div className="absolute z-50 mt-1 w-72 bg-card border border-border rounded-xl shadow-lg p-3 text-left">
+                                <p className="text-xs font-semibold text-muted-foreground mb-2">Курсы ученика</p>
+                                <ul className="space-y-1 mb-2">
+                                  {coursesPopup.names.map((name, idx) => {
+                                    const courseId = coursesPopup.courseIds[idx];
+                                    const isForced = courseId ? (forcedCoursesMap.get(s.account_id)?.has(courseId) ?? false) : false;
+                                    return (
+                                        <li key={idx} className="flex items-center justify-between text-xs text-foreground leading-snug">
+                                          <span>• {name}</span>
+                                          {isForced && courseId && (
+                                              <button
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                      await studentsApi.unassignFromCourse(s.account_id, courseId);
+                                                      toast.success(`Откреплён от курса "${name}"`);
+                                                      setForcedCoursesMap(prev => {
+                                                        const newMap = new Map(prev);
+                                                        const courseSet = newMap.get(s.account_id);
+                                                        if (courseSet) {
+                                                          courseSet.delete(courseId);
+                                                          if (courseSet.size === 0) {
+                                                            newMap.delete(s.account_id);
+                                                          } else {
+                                                            newMap.set(s.account_id, courseSet);
+                                                          }
+                                                        }
+                                                        return newMap;
+                                                      });
+                                                      fetchData(page);
+                                                    } catch {
+                                                      toast.error('Ошибка открепления');
+                                                    }
+                                                  }}
+                                                  className="text-red-500 hover:text-red-700 text-[10px] px-1.5 py-0.5 rounded border border-red-200 hover:bg-red-50 transition-colors"
+                                              >
+                                                Открепить
+                                              </button>
+                                          )}
+                                        </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                          )}
+                        </td>
+
                         <td className="px-3 py-3 text-center">{ratingBadgeInteractive(s.project_rating, s.project_rating_work, 'Работа по проекту (слушания)')}</td>
                         <td className="px-3 py-3 text-center">{ratingBadgeInteractive(s.course_rating, s.course_rating_work, 'Работа по курсу (уроки)')}</td>
                         <td className="px-3 py-3 text-center">{ratingBadge(s.combined_rating)}</td>
@@ -576,8 +698,13 @@ export const StudentRatingPage: React.FC = () => {
 
                 <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4">
                   <p className="text-xs text-amber-800">
-                    Ученик будет удалён из текущих групп и перенесён в выбранный курс.
-                    Для него автоматически создастся индивидуальная группа, а флаг отстающего будет снят.
+                    {transferStudent?.is_lagging ? (
+                        <>Отстающий ученик будет перенесён в курс для отстающих.
+                          Флаг отстающего НЕ снимается. Курс появится в списке доступных.</>
+                    ) : (
+                        <>Ученик будет удалён из текущих групп и принудительно назначен на выбранный курс.
+                          Группа создаваться не будет, курс появится в списке доступных.</>
+                    )}
                   </p>
                 </div>
 

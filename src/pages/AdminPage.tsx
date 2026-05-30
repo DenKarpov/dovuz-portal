@@ -3139,100 +3139,308 @@ export const CoursesTab: React.FC = () => {
 };
 
 // ─── Scheduler Tab ────────────────────────────────────────────────────────────
-// Full width — no max-w-lg constraint, matches the panel width
 const SchedulerTab: React.FC = () => {
-    const [cron, setCron] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [lastCron, setLastCron] = useState('');
 
-    const PRESETS = [
-        { label: 'Ежедневно в 08:00', value: '0 0 8 * * ?' },
-        { label: 'Каждую неделю (Пн 09:00)', value: '0 0 9 ? * MON' },
-        { label: 'Каждый час', value: '0 0 * * * ?' },
-        { label: 'Каждые 30 минут', value: '0 0/30 * * * ?' },
-        { label: 'Каждые 15 минут', value: '0 0/15 * * * ?' },
-        { label: 'Ежедневно в полночь', value: '0 0 0 * * ?' },
+    // ── Конструктор расписания ────────────────────────────────────────────────
+    // Позволяет задать расписание визуально, не зная cron-синтаксис.
+    // Поддерживает 4 режима: каждый день в HH:MM, каждую неделю в день/HH:MM,
+    // каждые N минут, ручной cron.
+    type ScheduleMode = 'daily' | 'weekly' | 'interval' | 'custom';
+    const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    const DAY_CRON = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const INTERVALS = [
+        { label: '15 минут', value: '0 0/15 * * * ?' },
+        { label: '30 минут', value: '0 0/30 * * * ?' },
+        { label: '1 час',    value: '0 0 * * * ?' },
+        { label: '2 часа',   value: '0 0 0/2 * * ?' },
+        { label: '6 часов',  value: '0 0 0/6 * * ?' },
+        { label: '12 часов', value: '0 0 0/12 * * ?' },
     ];
 
-    const handleSave = async () => {
-        if (!cron.trim()) return toast.error('Введите cron-выражение');
-        setSaving(true);
+    function buildCron(mode: ScheduleMode, time: string, dayIdx: number, interval: string, custom: string): string {
+        const [hh = '8', mm = '0'] = time.split(':');
+        const h = parseInt(hh, 10);
+        const m = parseInt(mm, 10);
+        if (mode === 'daily')    return `0 ${m} ${h} * * ?`;
+        if (mode === 'weekly')   return `0 ${m} ${h} ? * ${DAY_CRON[dayIdx]}`;
+        if (mode === 'interval') return interval;
+        return custom.trim();
+    }
+
+    // ── Планировщик комментариев ──────────────────────────────────────────────
+    const [cMode, setCMode] = useState<ScheduleMode>('daily');
+    const [cTime, setCTime] = useState('08:00');
+    const [cDay, setCDay] = useState(0);
+    const [cInterval, setCInterval] = useState(INTERVALS[1].value);
+    const [cCustom, setCCustom] = useState('');
+    const [cSaving, setCRonSaving] = useState(false);
+    const [cLastCron, setCLastCron] = useState('');
+    const [cRunning, setCRunning] = useState(false);
+    const [cRunResult, setCRunResult] = useState<string | null>(null);
+
+    const cCron = buildCron(cMode, cTime, cDay, cInterval, cCustom);
+
+    const handleSaveComment = async () => {
+        if (!cCron.trim()) return toast.error('Задайте расписание');
+        setCRonSaving(true);
         try {
-            const res = await schedulerApi.setVerificationTime(cron.trim());
-            setLastCron(res.data.cron);
-            toast.success('Расписание обновлено!');
+            const res = await schedulerApi.setVerificationTime(cCron);
+            setCLastCron(res.data.cron);
+            toast.success('Расписание удаления комментариев обновлено');
         } catch (err: any) {
             toast.error(err.response?.data?.message ?? 'Ошибка');
-        } finally {
-            setSaving(false);
-        }
+        } finally { setCRonSaving(false); }
     };
 
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Main settings card */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="size-10 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-center">
-                        <Clock className="size-5 text-amber-600" />
-                    </div>
-                    <div>
-                        <h3 className="text-slate-800 font-semibold">Планировщик проверки</h3>
-                        <p className="text-slate-400 text-xs">Автоматическое удаление устаревших комментариев</p>
-                    </div>
-                </div>
+    const handleRunComments = async () => {
+        if (!window.confirm('Запустить удаление устаревших комментариев прямо сейчас?')) return;
+        setCRunning(true); setCRunResult(null);
+        try {
+            const res = await schedulerApi.runDeleteCommentsNow();
+            setCRunResult(res.data.message);
+            toast.success(res.data.message);
+        } catch (err: any) {
+            toast.error(err.response?.data?.message ?? 'Ошибка запуска');
+        } finally { setCRunning(false); }
+    };
 
-                <div className="mb-5">
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Cron-выражение</label>
-                    <input
-                        type="text"
-                        value={cron}
-                        onChange={e => setCron(e.target.value)}
-                        placeholder="0 0 8 * * ?"
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
-                    />
-                    <p className="text-xs text-slate-400 mt-1.5">Формат: секунды минуты часы день месяц день_недели</p>
-                </div>
+    // ── Планировщик отстающих ─────────────────────────────────────────────────
+    const [lMode, setLMode] = useState<ScheduleMode>('daily');
+    const [lTime, setLTime] = useState('08:00');
+    const [lDay, setLDay] = useState(0);
+    const [lInterval, setLInterval] = useState(INTERVALS[1].value);
+    const [lCustom, setLCustom] = useState('');
+    const [lSaving, setLSaving] = useState(false);
+    const [lLastCron, setLLastCron] = useState('');
+    const [lRunning, setLRunning] = useState(false);
+    const [lRunResult, setLRunResult] = useState<{ marked: number; message: string } | null>(null);
 
-                {lastCron && (
-                    <div className="mb-5 px-4 py-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-2">
-                        <CheckCircle className="size-4 text-emerald-500 shrink-0" />
-                        <p className="text-xs text-emerald-700">
-                            Активное расписание: <code className="font-mono font-semibold">{lastCron}</code>
-                        </p>
-                    </div>
-                )}
+    const lCron = buildCron(lMode, lTime, lDay, lInterval, lCustom);
 
-                <button
-                    onClick={handleSave}
-                    disabled={saving || !cron.trim()}
-                    className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm font-semibold rounded-xl hover:from-blue-700 hover:to-blue-600 transition-all disabled:opacity-60 shadow-md shadow-blue-100"
-                >
-                    {saving ? 'Сохранение...' : 'Установить расписание'}
-                </button>
+    const handleSaveLagging = async () => {
+        if (!lCron.trim()) return toast.error('Задайте расписание');
+        setLSaving(true);
+        try {
+            const res = await schedulerApi.setLaggingCheckTime(lCron);
+            setLLastCron(res.data.cron);
+            toast.success('Расписание проверки отстающих обновлено');
+        } catch (err: any) {
+            toast.error(err.response?.data?.message ?? 'Ошибка');
+        } finally { setLSaving(false); }
+    };
+
+    const handleRunLagging = async () => {
+        if (!window.confirm('Запустить проверку отстающих прямо сейчас?\nЭто обновит флаги is_lagging у учеников.')) return;
+        setLRunning(true); setLRunResult(null);
+        try {
+            const res = await schedulerApi.runLaggingCheckNow();
+            setLRunResult(res.data);
+            toast.success(res.data.message);
+        } catch (err: any) {
+            toast.error(err.response?.data?.message ?? 'Ошибка запуска');
+        } finally { setLRunning(false); }
+    };
+
+    // ── Переиспользуемый конструктор расписания ───────────────────────────────
+    const ScheduleBuilder = ({
+                                 mode, setMode, time, setTime, day, setDay,
+                                 interval, setInterval, custom, setCustom, cron,
+                             }: {
+        mode: ScheduleMode; setMode: (v: ScheduleMode) => void;
+        time: string; setTime: (v: string) => void;
+        day: number; setDay: (v: number) => void;
+        interval: string; setInterval: (v: string) => void;
+        custom: string; setCustom: (v: string) => void;
+        cron: string;
+    }) => (
+        <div className="space-y-4">
+            {/* Режим */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {([
+                    { key: 'daily',    label: 'Ежедневно' },
+                    { key: 'weekly',   label: 'Еженедельно' },
+                    { key: 'interval', label: 'Интервал' },
+                    { key: 'custom',   label: 'Cron вручную' },
+                ] as { key: ScheduleMode; label: string }[]).map(m => (
+                    <button key={m.key} onClick={() => setMode(m.key)}
+                            className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all ${
+                                mode === m.key
+                                    ? 'bg-blue-600 text-white border-blue-600'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                            }`}>
+                        {m.label}
+                    </button>
+                ))}
             </div>
 
-            {/* Presets card */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                <h3 className="text-slate-800 font-semibold mb-1">Готовые пресеты</h3>
-                <p className="text-slate-400 text-xs mb-4">Нажмите, чтобы подставить значение</p>
-                <div className="grid grid-cols-1 gap-2">
-                    {PRESETS.map(p => (
-                        <button
-                            key={p.value}
-                            onClick={() => setCron(p.value)}
-                            className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm border transition-all text-left ${
-                                cron === p.value
-                                    ? 'border-blue-300 bg-blue-50 text-blue-700'
-                                    : 'border-slate-200 text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600'
-                            }`}
-                        >
-                            <span className="font-medium">{p.label}</span>
-                            <code className="text-xs font-mono opacity-60">{p.value}</code>
+            {/* Параметры в зависимости от режима */}
+            {mode === 'daily' && (
+                <div className="flex items-center gap-3">
+                    <label className="text-xs text-slate-500 shrink-0">Время запуска</label>
+                    <input type="time" value={time} onChange={e => setTime(e.target.value)}
+                           className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+            )}
+
+            {mode === 'weekly' && (
+                <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                        {DAYS.map((d, i) => (
+                            <button key={d} onClick={() => setDay(i)}
+                                    className={`w-10 h-10 rounded-xl text-xs font-semibold border transition-all ${
+                                        day === i
+                                            ? 'bg-blue-600 text-white border-blue-600'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+                                    }`}>
+                                {d}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <label className="text-xs text-slate-500 shrink-0">Время запуска</label>
+                        <input type="time" value={time} onChange={e => setTime(e.target.value)}
+                               className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    </div>
+                </div>
+            )}
+
+            {mode === 'interval' && (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {INTERVALS.map(iv => (
+                        <button key={iv.value} onClick={() => setInterval(iv.value)}
+                                className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all ${
+                                    interval === iv.value
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                                }`}>
+                            {iv.label}
                         </button>
                     ))}
                 </div>
+            )}
+
+            {mode === 'custom' && (
+                <div>
+                    <input type="text" value={custom} onChange={e => setCustom(e.target.value)}
+                           placeholder="0 0 8 * * ?"
+                           className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50" />
+                    <p className="text-xs text-slate-400 mt-1.5">Формат: секунды минуты часы день месяц день_недели</p>
+                </div>
+            )}
+
+            {/* Итоговое cron-выражение */}
+            {cron && mode !== 'custom' && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl">
+                    <span className="text-xs text-slate-400">Cron:</span>
+                    <code className="text-xs font-mono text-slate-600 font-semibold">{cron}</code>
+                </div>
+            )}
+        </div>
+    );
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {/* ── Колонка 1: Удаление комментариев ── */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="size-9 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-center shrink-0">
+                        <Clock className="size-4 text-amber-600" />
+                    </div>
+                    <div>
+                        <h2 className="text-slate-800 font-semibold text-sm">Удаление комментариев</h2>
+                        <p className="text-slate-400 text-xs">Автоматическое удаление по расписанию Quartz</p>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-5">
+                    <ScheduleBuilder
+                        mode={cMode} setMode={setCMode}
+                        time={cTime} setTime={setCTime}
+                        day={cDay} setDay={setCDay}
+                        interval={cInterval} setInterval={setCInterval}
+                        custom={cCustom} setCustom={setCCustom}
+                        cron={cCron}
+                    />
+                    {cLastCron && (
+                        <div className="px-4 py-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-2">
+                            <CheckCircle className="size-4 text-emerald-500 shrink-0" />
+                            <p className="text-xs text-emerald-700">
+                                Активное: <code className="font-mono font-semibold">{cLastCron}</code>
+                            </p>
+                        </div>
+                    )}
+                    {cRunResult && (
+                        <div className="px-4 py-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center gap-2">
+                            <CheckCircle className="size-4 text-blue-500 shrink-0" />
+                            <p className="text-xs text-blue-700">{cRunResult}</p>
+                        </div>
+                    )}
+                    <div className="flex gap-3">
+                        <button onClick={handleSaveComment} disabled={cSaving || !cCron.trim()}
+                                className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm font-semibold rounded-xl hover:from-blue-700 hover:to-blue-600 transition-all disabled:opacity-60 shadow-md shadow-blue-100">
+                            {cSaving ? 'Сохранение...' : 'Установить расписание'}
+                        </button>
+                        <button onClick={handleRunComments} disabled={cRunning}
+                                className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 text-white text-sm font-semibold rounded-xl hover:from-amber-700 hover:to-amber-600 transition-all disabled:opacity-60 shadow-md shadow-amber-100 flex items-center justify-center gap-2">
+                            {cRunning
+                                ? <><span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Выполняется...</>
+                                : 'Запустить сейчас'}
+                        </button>
+                    </div>
+                </div>
             </div>
+
+            {/* ── Колонка 2: Проверка отстающих ── */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="size-9 bg-rose-50 border border-rose-100 rounded-xl flex items-center justify-center shrink-0">
+                        <Users className="size-4 text-rose-600" />
+                    </div>
+                    <div>
+                        <h2 className="text-slate-800 font-semibold text-sm">Проверка отстающих учеников</h2>
+                        <p className="text-slate-400 text-xs">Выявление и перенос по дедлайну TOPIC_APPROVAL</p>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-5">
+                    <ScheduleBuilder
+                        mode={lMode} setMode={setLMode}
+                        time={lTime} setTime={setLTime}
+                        day={lDay} setDay={setLDay}
+                        interval={lInterval} setInterval={setLInterval}
+                        custom={lCustom} setCustom={setLCustom}
+                        cron={lCron}
+                    />
+                    {lLastCron && (
+                        <div className="px-4 py-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-2">
+                            <CheckCircle className="size-4 text-emerald-500 shrink-0" />
+                            <p className="text-xs text-emerald-700">
+                                Активное: <code className="font-mono font-semibold">{lLastCron}</code>
+                            </p>
+                        </div>
+                    )}
+                    {lRunResult !== null && (
+                        <div className="px-4 py-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-2">
+                            <CheckCircle className="size-4 text-blue-500 shrink-0 mt-0.5" />
+                            <p className="text-xs text-blue-700">{lRunResult.message}</p>
+                        </div>
+                    )}
+                    <div className="flex gap-3">
+                        <button onClick={handleSaveLagging} disabled={lSaving || !lCron.trim()}
+                                className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm font-semibold rounded-xl hover:from-blue-700 hover:to-blue-600 transition-all disabled:opacity-60 shadow-md shadow-blue-100">
+                            {lSaving ? 'Сохранение...' : 'Установить расписание'}
+                        </button>
+                        <button onClick={handleRunLagging} disabled={lRunning}
+                                className="flex-1 py-2.5 bg-gradient-to-r from-rose-600 to-rose-500 text-white text-sm font-semibold rounded-xl hover:from-rose-700 hover:to-rose-600 transition-all disabled:opacity-60 shadow-md shadow-rose-100 flex items-center justify-center gap-2">
+                            {lRunning
+                                ? <><span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Выполняется...</>
+                                : 'Запустить сейчас'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     );
 };

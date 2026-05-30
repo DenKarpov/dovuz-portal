@@ -44,6 +44,7 @@ export const ModeratorCoursePanel: React.FC<ModeratorCoursePanelProps> = ({ cour
     max_score: 100,
     deadline_local: '',
     hearing_open_for_students: false,
+    hearing_stage: '' as import('../api/courses').HearingStage | '',
   });
 
   const [lessonCriteriaFormInline, setLessonCriteriaFormInline] = useState<
@@ -148,6 +149,7 @@ export const ModeratorCoursePanel: React.FC<ModeratorCoursePanelProps> = ({ cour
         max_score: lesson.max_score ?? 100,
         deadline_local: apiDeadlineToDatetimeLocal(lesson.submission_deadline),
         hearing_open_for_students: lesson.hearing_stage === 'TOPIC_APPROVAL' ? true : (lesson.hearing_open_for_students ?? false),
+        hearing_stage: lesson.hearing_stage ?? '',
       });
       const existing = lessonCriteriaMap.get(lesson.id) ?? [];
       setLessonCriteriaFormInline(
@@ -167,6 +169,7 @@ export const ModeratorCoursePanel: React.FC<ModeratorCoursePanelProps> = ({ cour
         max_score: category === 'HEARING' ? 0 : 100,
         deadline_local: '',
         hearing_open_for_students: category === 'HEARING',
+        hearing_stage: '',
       });
       setLessonCriteriaFormInline([]);
     }
@@ -204,17 +207,23 @@ export const ModeratorCoursePanel: React.FC<ModeratorCoursePanelProps> = ({ cour
   const handleSaveLesson = async () => {
     if (!courseId) return;
     if (!lessonForm.title.trim()) return toast.error('Введите название урока');
+    if (category === 'HEARING' && !editingLesson && !lessonForm.hearing_stage) {
+      return toast.error('Выберите этап слушания');
+    }
     setSavingLesson(true);
     try {
       const validCriteriaForScore = lessonCriteriaFormInline.filter(c => c.name.trim());
-      const { deadline_local, hearing_open_for_students, ...rest } = lessonForm;
+      const { deadline_local, hearing_open_for_students, hearing_stage, ...rest } = lessonForm;
       const payload: CreateLessonRequest = {
         ...rest,
         submission_deadline: datetimeLocalToApiDeadline(deadline_local),
         category: category,
       };
       if (category === 'HEARING') {
-        payload.hearing_open_for_students = editingLesson?.hearing_stage === 'TOPIC_APPROVAL'
+        if (hearing_stage) {
+          payload.hearing_stage = hearing_stage;
+        }
+        payload.hearing_open_for_students = hearing_stage === 'TOPIC_APPROVAL'
             ? true
             : hearing_open_for_students;
       }
@@ -813,6 +822,40 @@ export const ModeratorCoursePanel: React.FC<ModeratorCoursePanelProps> = ({ cour
                 })}
               </div>
             </div>
+
+            {/* Выбор этапа слушания — только для HEARING */}
+            {category === 'HEARING' && (
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-slate-500 dark:text-muted-foreground">
+                    Этап слушания <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                      value={lessonForm.hearing_stage}
+                      onChange={(e) => {
+                        const stage = e.target.value as import('../api/courses').HearingStage | '';
+                        setLessonForm(f => ({
+                          ...f,
+                          hearing_stage: stage,
+                          // TOPIC_APPROVAL всегда открыт
+                          hearing_open_for_students: stage === 'TOPIC_APPROVAL' ? true : f.hearing_open_for_students,
+                        }));
+                      }}
+                      disabled={!!editingLesson}
+                      className="w-full border border-slate-200 dark:border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50 dark:bg-input-background disabled:opacity-60"
+                  >
+                    <option value="">— Выберите этап —</option>
+                    <option value="TOPIC_APPROVAL">Выбор и согласование темы</option>
+                    <option value="INTERMEDIATE">Промежуточный показ</option>
+                    <option value="FINAL">Финальный показ</option>
+                    <option value="CONFERENCE_DEFENSE">Защита на конференции</option>
+                  </select>
+                  {editingLesson && (
+                      <p className="text-[11px] text-slate-400 dark:text-muted-foreground">
+                        Этап нельзя изменить после создания.
+                      </p>
+                  )}
+                </div>
+            )}
 
             <hr className="border-slate-100 dark:border-border" />
 

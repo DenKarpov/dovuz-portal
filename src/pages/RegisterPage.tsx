@@ -146,7 +146,7 @@ export const RegisterPage: React.FC = () => {
       const res = await authApi.register(email.trim(), nickname.trim(), password.trim());
       login({ nickname: res.data.nickname, role: res.data.role });
       toast.success('🎉 Аккаунт успешно создан!');
-      navigate('/');
+      navigate('/complete-profile');
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Ошибка при регистрации');
     } finally {

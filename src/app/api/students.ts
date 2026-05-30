@@ -14,6 +14,10 @@ export interface RatingWorkSnippet {
     score?: number | null;
     representative_grade?: number | null;
     status?: string | null;
+    /** ID курсов, в группах которых уже состоит ученик */
+    enrolled_course_ids?: number[];
+    /** ✅ ID курсов, на которые ученик принудительно назначен (без группы) */
+    forced_course_ids?: number[];
 }
 
 export interface StudentRatingResponse {
@@ -30,6 +34,9 @@ export interface StudentRatingResponse {
     is_lagging: boolean;
     course_rating_work?: RatingWorkSnippet | null;
     project_rating_work?: RatingWorkSnippet | null;
+    /** ID курсов, в группах которых уже состоит ученик */
+    enrolled_course_ids?: number[];
+    forced_course_ids?: number[];
 }
 
 export const studentsApi = {
@@ -63,4 +70,7 @@ export const studentsApi = {
     /** @deprecated Используйте transferToCourse */
     transferToLaggingCourse: (accountId: number, targetCourseId: number) =>
         api.post(`/students/${accountId}/transfer`, { target_course_id: targetCourseId }),
+
+    unassignFromCourse: (studentId: number, courseId: number) =>
+        api.delete(`/students/${studentId}/courses/${courseId}/unenroll`),
 };

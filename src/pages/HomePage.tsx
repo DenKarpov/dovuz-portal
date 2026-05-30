@@ -159,16 +159,6 @@ export const HomePage: React.FC = () => {
                     <ArrowRight className="size-5" />
                   </motion.button>
                 </Link>
-                <Link to="/directions">
-                  <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    className="flex items-center gap-2 border border-white/15 text-white hover:bg-white/5 px-9 py-4.5 rounded-xl text-base font-semibold transition-colors"
-                  >
-                    Обзор курсов
-                    <Layers className="size-5" />
-                  </motion.button>
-                </Link>
               </motion.div>
             )}
           </div>
@@ -195,9 +185,6 @@ export const HomePage: React.FC = () => {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <span className="text-blue-600 text-sm font-semibold tracking-widest uppercase mb-3 block">
-              Платформа
-            </span>
             <h2 className="text-gray-900 mb-5" style={{ fontSize: 'clamp(1.85rem, 4vw, 2.85rem)', fontWeight: 800, lineHeight: 1.2 }}>
               Всё для успешной подготовки
             </h2>

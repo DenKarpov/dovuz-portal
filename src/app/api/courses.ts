@@ -137,6 +137,8 @@ export interface CreateCourseRequest {
     name: string;
     description: string;
     school_id?: number;
+    is_introduction?: boolean;
+    for_lagging_students?: boolean;
 }
 
 export interface CreateLessonRequest {
@@ -190,6 +192,7 @@ export interface CourseSummaryStudentRow {
     last_name: string | null;
     school_name: string | null;
     class_name: string | null;
+    is_lagging: boolean;
     scores: CourseSummaryLessonScore[];
     total_score: number;
 }
@@ -269,6 +272,8 @@ export const coursesApi = {
             name: data.name,
             description: data.description,
             ...(data.school_id != null && { school_id: data.school_id }),
+            ...(data.is_introduction != null && { is_introduction: data.is_introduction }),
+            ...(data.for_lagging_students != null && { for_lagging_students: data.for_lagging_students }),
         }),
 
     adminGetAllCourses: (pageNumber = 0, pageSize = 50) =>
