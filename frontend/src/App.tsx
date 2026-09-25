@@ -1,0 +1,76 @@
+import React from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { ThemeProvider } from 'next-themes';
+import { Layout } from './app/components/Layout';
+import { AuthProvider } from './context/AuthContext';
+import { NewsPage } from './pages/NewsPage';
+import { NewsPublicationPage } from './pages/NewsPublicationPage';
+import { DirectionsPage } from './pages/DirectionsPage';
+import { SubjectsPage } from './pages/SubjectsPage';
+import { TopicsPage } from './pages/TopicsPage';
+import { PublicationsListPage } from './pages/PublicationsListPage';
+import { PublicationDetailPage } from './pages/PublicationDetailPage';
+import { HomePage } from './pages/HomePage';
+import { ProfilePage } from './pages/ProfilePage';
+import { EditProfilePage } from './pages/EditProfilePage';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { AdminPage } from './pages/AdminPage';
+import { ImportExportPage } from './pages/ImportExportPage';
+import { CoursesPage } from './pages/CoursesPage';
+import { CourseDetailPage } from './pages/CourseDetailPage';
+import { IdeaBankPage } from './pages/IdeaBankPage';
+import { StudentRatingPage } from './pages/StudentRatingPage';
+import { AdminCourseWorksPage } from './pages/AdminCourseWorksPage';
+import { CompleteProfilePage } from './pages/CompleteProfilePage';
+
+export default function App() {
+  return (
+      <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          themes={['light', 'dark', 'colorblind']}
+          value={{ colorblind: 'theme-colorblind' }}
+      >
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<HomePage />} />
+                <Route path="news" element={<NewsPage />} />
+                <Route path="news/:id" element={<NewsPublicationPage />} />
+                <Route path="directions" element={<DirectionsPage />} />
+                <Route path="directions/:dirId/subjects" element={<SubjectsPage />} />
+                <Route path="subjects/:subjectId/topics" element={<TopicsPage />} />
+                <Route path="topics/:topicId/publications" element={<PublicationsListPage />} />
+                <Route path="publications/:id" element={<PublicationDetailPage />} />
+                {/* Старые маршруты проектов → редирект на курсы */}
+                <Route path="projects" element={<Navigate to="/courses" replace />} />
+                <Route path="projects/:id" element={<Navigate to="/courses" replace />} />
+                <Route path="moderator/projects" element={<Navigate to="/courses" replace />} />
+                <Route path="moderator/projects/manage" element={<Navigate to="/courses" replace />} />
+                <Route path="moderator/idea-bank" element={<IdeaBankPage />} />
+                <Route path="moderator/students" element={<StudentRatingPage />} />
+                <Route path="moderator/courses/reviews" element={<Navigate to="/courses" replace />} />
+                <Route path="moderator/courses/manage" element={<Navigate to="/courses" replace />} />
+                <Route path="admin/projects" element={<Navigate to="/courses" replace />} />
+                {/* Курсы проектной деятельности */}
+                <Route path="courses" element={<CoursesPage />} />
+                <Route path="courses/:courseId" element={<CourseDetailPage />} />
+                <Route path="profile/:nickname" element={<ProfilePage />} />
+                <Route path="profile/edit" element={<EditProfilePage />} />
+                <Route path="admin" element={<AdminPage />} />
+                <Route path="admin/courses/:courseId/defense" element={<AdminCourseWorksPage />} />
+                <Route path="admin/import-export" element={<ImportExportPage />} />
+                <Route path="*" element={<Navigate to="/news" replace />} />
+              </Route>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/complete-profile" element={<CompleteProfilePage />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </ThemeProvider>
+  );
+}
