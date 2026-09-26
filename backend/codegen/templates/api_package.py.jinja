@@ -1,0 +1,21 @@
+# Сгенерировано codegen/generate.py из openapi/openapi.yaml, руками не править.
+
+from fastapi import APIRouter
+
+{% for module in modules %}
+from app.generated.api import {{ module.name }} as {{ module.name }}_api
+{% endfor %}
+
+
+def build_api_router(
+    *,
+{% for module in modules %}
+    {{ module.name }}: type[{{ module.name }}_api.{{ module.class_name }}],
+{% endfor %}
+) -> APIRouter:
+    """Все ручки спеки. Реализацию нужно передать для каждого тега."""
+    router = APIRouter()
+{% for module in modules %}
+    router.include_router({{ module.name }}_api.build_router({{ module.name }}))
+{% endfor %}
+    return router

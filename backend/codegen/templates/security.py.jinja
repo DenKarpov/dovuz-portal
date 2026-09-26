@@ -1,0 +1,20 @@
+# Сгенерировано codegen/generate.py из openapi/openapi.yaml, руками не править.
+
+from typing import Annotated
+
+from fastapi import HTTPException, Security
+from fastapi.security import APIKeyCookie
+{% for scheme in schemes %}
+
+{{ scheme.variable }} = APIKeyCookie(name="{{ scheme.cookie }}", auto_error=False)
+
+
+def {{ scheme.dependency }}(value: Annotated[str | None, Security({{ scheme.variable }})]) -> str:
+    """Схема «{{ scheme.key }}»: без куки {{ scheme.cookie }} — 401.
+
+    Здесь проверяется только наличие куки, действительность сессии проверяет реализация.
+    """
+    if not value:
+        raise HTTPException(status_code=401, detail="Нужно войти в систему")
+    return value
+{% endfor %}

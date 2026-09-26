@@ -1,0 +1,58 @@
+# Сгенерировано codegen/generate.py из openapi/openapi.yaml, руками не править.
+
+from abc import ABC, abstractmethod
+from datetime import date
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, Form, Path, Query, Response, UploadFile
+
+{% if models %}
+from app.generated.models import {{ models | join(", ") }}
+{% endif %}
+{% if security %}
+from app.generated.security import {{ security | join(", ") }}
+{% endif %}
+
+
+class {{ class_name }}(ABC):
+    """Ручки тега «{{ tag }}». Реализация наследуется от этого класса."""
+{% for op in operations %}
+
+    @abstractmethod
+    def {{ op.function }}(self{% if op.params %}, *{% for p in op.params %}, {{ p.name }}: {{ p.type_hint }}{% endfor %}{% endif %}) -> {{ op.return_type }}:
+        """{{ op.docstring | indent(8) }}"""
+{% endfor %}
+
+
+def build_router(implementation: type[{{ class_name }}]) -> APIRouter:
+    """Роутер тега «{{ tag }}»: реализация создаётся на каждый запрос через Depends."""
+    if implementation.__abstractmethods__:
+        missing = ", ".join(sorted(implementation.__abstractmethods__))
+        raise TypeError(f"{implementation.__name__} не реализует: {missing}")
+
+    router = APIRouter(tags=["{{ tag }}"])
+    Service = Annotated[{{ class_name }}, Depends(implementation)]
+{% for op in operations %}
+
+    @router.{{ op.method }}(
+        "{{ op.path }}",
+        operation_id="{{ op.operation_id }}",
+        status_code={{ op.status_code }},
+        response_model={{ op.response_model }},
+{% if op.security_dependency %}
+        dependencies=[Depends({{ op.security_dependency }})],
+{% endif %}
+    )
+    def {{ op.function }}(
+        service: Service,
+{% for p in op.params if p.required %}
+        {{ p.name }}: {{ p.annotation }},
+{% endfor %}
+{% for p in op.params if not p.required %}
+        {{ p.name }}: {{ p.annotation }} = {{ p.default }},
+{% endfor %}
+    ) -> {{ op.return_type }}:
+        return service.{{ op.function }}({% for p in op.params %}{{ p.name }}={{ p.name }}{% if not loop.last %}, {% endif %}{% endfor %})
+{% endfor %}
+
+    return router

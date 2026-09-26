@@ -1,0 +1,68 @@
+[project]
+name = "dovuz-backend"
+version = "0.1.0"
+description = "Бэкенд АИС «ДоВуз-Портал»"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "pydantic-settings",
+    "python-multipart",
+    "pyyaml",
+    "uvicorn[standard]",
+]
+
+[dependency-groups]
+dev = [
+    "datamodel-code-generator",
+    "httpx2",
+    "jinja2",
+    "openapi-spec-validator",
+    "pytest",
+    "ruff",
+    "schemathesis",
+]
+
+[tool.uv]
+package = false
+
+# Модели для app/generated/models.py; запускается из codegen/generate.py
+[tool.datamodel-codegen]
+input = "openapi/openapi.yaml"
+input-file-type = "openapi"
+output = "app/generated/models.py"
+output-model-type = "pydantic_v2.BaseModel"
+target-python-version = "3.12"
+snake-case-field = true
+allow-population-by-field-name = true
+capitalise-enum-members = true
+strict-nullable = true
+# В JSON спека различает integer и boolean, а pydantic по умолчанию приводит false к 0
+strict-types = ["int", "bool"]
+use-standard-collections = true
+use-union-operator = true
+use-annotated = true
+field-constraints = true
+collapse-root-models = true
+use-schema-description = true
+use-field-description = true
+output-datetime-class = "AwareDatetime"
+disable-timestamp = true
+use-double-quotes = true
+formatters = ["builtin"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/generated/*" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

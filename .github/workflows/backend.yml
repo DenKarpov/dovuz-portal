@@ -1,0 +1,38 @@
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          working-directory: backend
+
+      - name: Зависимости из uv.lock
+        run: uv sync --locked
+
+      - name: Спека валидна
+        run: uv run openapi-spec-validator openapi/openapi.yaml
+
+      - name: Сгенерированный код совпадает со спекой
+        run: uv run python codegen/generate.py --check
+
+      - name: Линтер и форматирование
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Тесты
+        run: uv run pytest -q

@@ -1,0 +1,2260 @@
+openapi: 3.1.0
+info:
+  title: ДоВуз-Портал API
+  version: 0.1.0
+  description: |
+    Контракт бэкенда АИС «ДоВуз-Портал». Снят со слоя `frontend/src/app/api/`
+    и повторяет его как есть, включая смешанное именование полей: часть ответов
+    в snake_case, часть в camelCase, query-параметры в camelCase.
+
+    Аутентификация — HTTP-only кука сессии, которую выставляют `/auth/login`
+    и `/auth/register`. Ошибки всегда приходят в формате `{"message": "..."}`.
+    401 — «не вошёл» (фронт разлогинивает), 403 — «вошёл, но нельзя».
+servers:
+  - url: /v1
+    description: Относительно хоста, с которого отдана спека; локально — http://localhost:8080/v1
+security:
+  - sessionCookie: []
+tags:
+  - name: auth
+    description: Регистрация, вход, выход
+  - name: accounts
+    description: Профили и управление пользователями
+  - name: roles
+  - name: directions
+    description: Направления — верхний уровень иерархии материалов
+  - name: subjects
+  - name: subject-topics
+  - name: publications
+    description: Публикации в темах предметов
+  - name: news
+    description: Новостная лента
+  - name: comments
+  - name: files
+  - name: schools
+  - name: classes
+  - name: moderators
+    description: Назначение модераторов на предметы
+
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      operationId: register
+      summary: Регистрация
+      description: Создаёт учётную запись с ролью «Пользователь» и сразу открывает сессию.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRegisterRequest'
+      responses:
+        '201':
+          description: Учётная запись создана, сессия открыта
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/SessionCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Вход по email и паролю
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginRequest'
+      responses:
+        '200':
+          description: Сессия открыта
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/SessionCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Неверный email или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Учётная запись заблокирована
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Выход
+      description: Закрывает текущую сессию и стирает куку. Без сессии тоже отвечает 204.
+      security:
+        - {}
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Сессия закрыта
+
+  /accounts:
+    get:
+      tags: [accounts]
+      operationId: getAllUsers
+      summary: Все пользователи
+      description: Только для администратора.
+      parameters:
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags: [accounts]
+      operationId: saveInfo
+      summary: Правка своего профиля
+      description: |
+        Меняются только переданные поля. Школа и класс проверяются на
+        согласованность: класс должен принадлежать выбранной школе.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  $ref: '#/components/schemas/Nickname'
+                firstName:
+                  type: string
+                  maxLength: 100
+                lastName:
+                  type: string
+                  maxLength: 100
+                middleName:
+                  type: string
+                  maxLength: 100
+                birthDate:
+                  type: string
+                  format: date
+                description:
+                  type: string
+                  maxLength: 2000
+                schoolId:
+                  type: integer
+                classId:
+                  type: integer
+                photo:
+                  type: string
+                  format: binary
+                  description: Изображение JPEG, PNG, GIF или WebP, до 10 МБ
+      responses:
+        '200':
+          description: Обновлённый профиль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+
+  /accounts/{account}:
+    get:
+      tags: [accounts]
+      operationId: getAccount
+      summary: Профиль по никнейму
+      description: Email виден владельцу профиля, модераторам и администратору, остальным — `null`.
+      parameters:
+        - name: account
+          in: path
+          required: true
+          description: Никнейм
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Профиль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [accounts]
+      operationId: deleteUser
+      summary: Удалить пользователя
+      description: Только для администратора, себя удалить нельзя.
+      parameters:
+        - name: account
+          in: path
+          required: true
+          description: Идентификатор учётной записи
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Удалён
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{id}/ban:
+    post:
+      tags: [accounts]
+      operationId: banUser
+      summary: Заблокировать
+      description: Закрывает все сессии пользователя. Только для администратора.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Новый статус
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusAccountResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{id}/unban:
+    post:
+      tags: [accounts]
+      operationId: unbanUser
+      summary: Разблокировать
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Новый статус
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusAccountResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{id}/profile:
+    patch:
+      tags: [accounts]
+      operationId: adminUpdateUser
+      summary: Правка профиля администратором
+      description: |
+        Меняются только переданные поля. `null` в `school_id` отвязывает от школы
+        и класса, `null` в `class_id` — только от класса.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateProfileRequest'
+      responses:
+        '200':
+          description: Обновлённый пользователь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAllUserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{id}/role:
+    put:
+      tags: [accounts]
+      operationId: updateRole
+      summary: Сменить роль
+      description: |
+        Только для администратора, свою роль сменить нельзя. При снятии роли
+        модератора снимаются и его назначения на предметы.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: Новая роль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountUpdateRoleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{nickname}/course-progress:
+    get:
+      tags: [accounts]
+      operationId: getCourseProgress
+      summary: Прогресс по курсам
+      description: По каждому курсу пользователя — занятия, баллы и статусы слушаний.
+      parameters:
+        - name: nickname
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Прогресс по каждому курсу
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CourseProgressResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/school/{schoolId}:
+    get:
+      tags: [accounts]
+      operationId: getBySchool
+      summary: Пользователи школы
+      description: Для модераторов и администратора.
+      parameters:
+        - name: schoolId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/class/{classId}:
+    get:
+      tags: [accounts]
+      operationId: getByClass
+      summary: Пользователи класса
+      description: Модераторам и администратору — любой класс, ученику — только свой.
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/me/password:
+    put:
+      tags: [accounts]
+      operationId: changePassword
+      summary: Сменить пароль
+      description: Остальные сессии пользователя закрываются, текущая остаётся.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Пароль изменён
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /accounts/admin/register:
+    post:
+      tags: [accounts]
+      operationId: adminRegisterUser
+      summary: Создать пользователя администратором
+      description: Без `role_id` создаётся «Пользователь».
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRegisterRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAllUserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /roles:
+    get:
+      tags: [roles]
+      operationId: getRoles
+      summary: Все роли
+      responses:
+        '200':
+          description: Роли
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /directions:
+    get:
+      tags: [directions]
+      operationId: getDirections
+      summary: Все направления
+      responses:
+        '200':
+          description: Направления
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DirectionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [directions]
+      operationId: createDirection
+      summary: Создать направление
+      description: Только для администратора. Название уникально без учёта регистра.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameRequest'
+      responses:
+        '201':
+          description: Направление создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /directions/{id}:
+    get:
+      tags: [directions]
+      operationId: getDirection
+      summary: Направление по id
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Направление
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [directions]
+      operationId: updateDirection
+      summary: Переименовать направление
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameRequest'
+      responses:
+        '200':
+          description: Направление
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [directions]
+      operationId: deleteDirection
+      summary: Удалить направление
+      description: Вместе с предметами, темами, публикациями и их файлами.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Удалено
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /subjects:
+    get:
+      tags: [subjects]
+      operationId: getSubjects
+      summary: Предметы направления
+      parameters:
+        - name: directionId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница предметов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [subjects]
+      operationId: createSubject
+      summary: Создать предмет
+      description: Только для администратора. Название уникально в пределах направления.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubjectCreateRequest'
+      responses:
+        '201':
+          description: Предмет создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /subjects/{id}:
+    get:
+      tags: [subjects]
+      operationId: getSubject
+      summary: Предмет по id
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Предмет
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [subjects]
+      operationId: updateSubject
+      summary: Переименовать предмет
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameRequest'
+      responses:
+        '200':
+          description: Предмет
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [subjects]
+      operationId: deleteSubject
+      summary: Удалить предмет
+      description: Вместе с темами, публикациями и их файлами.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Удалён
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /subject-topics:
+    get:
+      tags: [subject-topics]
+      operationId: getSubjectTopics
+      summary: Темы предмета
+      parameters:
+        - name: subjectId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница тем
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectTopicPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [subject-topics]
+      operationId: createSubjectTopic
+      summary: Создать тему
+      description: Администратору и модераторам, назначенным на предмет.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubjectTopicCreateRequest'
+      responses:
+        '201':
+          description: Тема создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectTopicResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /subject-topics/{id}:
+    get:
+      tags: [subject-topics]
+      operationId: getSubjectTopic
+      summary: Тема по id
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Тема
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectTopicResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [subject-topics]
+      operationId: updateSubjectTopic
+      summary: Переименовать тему
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameRequest'
+      responses:
+        '200':
+          description: Тема
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectTopicResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [subject-topics]
+      operationId: deleteSubjectTopic
+      summary: Удалить тему
+      description: Вместе с публикациями и их файлами.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Удалена
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /publications:
+    get:
+      tags: [publications]
+      operationId: getPublicationsByTopic
+      summary: Публикации темы
+      parameters:
+        - name: subjectTopicId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница публикаций, новые сверху
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationTitlePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [publications]
+      operationId: createPublication
+      summary: Создать публикацию в теме
+      description: Администратору и модераторам, назначенным на предмет темы.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title, subjectTopicId]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                description:
+                  type: string
+                  maxLength: 20000
+                subjectTopicId:
+                  type: integer
+                files:
+                  type: array
+                  description: До 10 файлов, каждый до 50 МБ
+                  maxItems: 10
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '201':
+          description: Публикация создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+
+  /publications/{id}:
+    get:
+      tags: [publications]
+      operationId: getPublication
+      summary: Публикация по id
+      description: Новости открыты всем, публикации из тем — только после входа.
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Публикация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [publications]
+      operationId: deletePublication
+      summary: Удалить публикацию
+      description: |
+        Публикацию из темы — администратор или модератор предмета,
+        новость — администратор или её автор.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Удалена
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /news_publications:
+    get:
+      tags: [news]
+      operationId: getNews
+      summary: Лента новостей
+      description: Открыта всем, новые сверху.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница новостей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [news]
+      operationId: createNews
+      summary: Опубликовать новость
+      description: Для модераторов и администратора.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                description:
+                  type: string
+                  maxLength: 20000
+                files:
+                  type: array
+                  description: До 10 файлов, каждый до 50 МБ
+                  maxItems: 10
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '201':
+          description: Новость опубликована
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+
+  /comments:
+    get:
+      tags: [comments]
+      operationId: getComments
+      summary: Комментарии к публикации
+      description: Только комментарии верхнего уровня, новые сверху. Для новостей открыты всем.
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - name: publicationId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница комментариев
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [comments]
+      operationId: createComment
+      summary: Оставить комментарий
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreateRequest'
+      responses:
+        '201':
+          description: Комментарий создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [comments]
+      operationId: updateComment
+      summary: Изменить свой комментарий
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentUpdateRequest'
+      responses:
+        '200':
+          description: Комментарий
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /comments/revisions:
+    get:
+      tags: [comments]
+      operationId: getCommentRevisions
+      summary: История правок комментария
+      description: Для модераторов и администратора. Доступна и после удаления комментария.
+      parameters:
+        - name: commentId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Версии от первой к последней
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentRevisionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /comments/create-comment-reply:
+    post:
+      tags: [comments]
+      operationId: createCommentReply
+      summary: Ответить на комментарий
+      description: Вложенность двухуровневая — отвечать можно только на комментарий верхнего уровня.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentReplyRequest'
+      responses:
+        '201':
+          description: Ответ создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /comments/{id}:
+    get:
+      tags: [comments]
+      operationId: getComment
+      summary: Комментарий по id
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Комментарий
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [comments]
+      operationId: deleteComment
+      summary: Удалить комментарий
+      description: |
+        Свой — автор, любой — администратор, в публикациях предмета —
+        назначенный на него модератор. Удаляется вместе с ответами.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Удалён
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /comments/{id}/replies:
+    get:
+      tags: [comments]
+      operationId: getCommentReplies
+      summary: Ответы на комментарий
+      description: В порядке написания.
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница ответов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /files/{fileNameInDirectory}:
+    get:
+      tags: [files]
+      operationId: downloadFile
+      summary: Скачать файл
+      description: Вложения новостей и аватарки открыты всем, остальное — после входа.
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - name: fileNameInDirectory
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Содержимое файла как вложение
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /files/photos/{filename}:
+    get:
+      tags: [files]
+      operationId: getPhoto
+      summary: Картинка для `<img src>`
+      description: |
+        Доступ как у скачивания. JPEG, PNG, GIF и WebP отдаются для показа в браузере,
+        остальные файлы — как вложение.
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Содержимое файла
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /schools:
+    get:
+      tags: [schools]
+      operationId: getSchools
+      summary: Все школы
+      responses:
+        '200':
+          description: Школы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SchoolResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [schools]
+      operationId: createSchool
+      summary: Создать школу
+      description: Только для администратора. Название уникально без учёта регистра.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameRequest'
+      responses:
+        '201':
+          description: Школа создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchoolResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /schools/{id}:
+    delete:
+      tags: [schools]
+      operationId: deleteSchool
+      summary: Удалить школу
+      description: Вместе с классами. Ученики остаются, но теряют привязку к школе и классу.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Удалена
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /classes:
+    post:
+      tags: [classes]
+      operationId: createClass
+      summary: Создать класс в школе
+      description: Только для администратора. Название уникально в пределах школы.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchoolClassCreateRequest'
+      responses:
+        '201':
+          description: Класс создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchoolClassResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /classes/school/{schoolId}:
+    get:
+      tags: [classes]
+      operationId: getClassesBySchool
+      summary: Классы школы
+      parameters:
+        - name: schoolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Классы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SchoolClassResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /classes/{id}:
+    delete:
+      tags: [classes]
+      operationId: deleteClass
+      summary: Удалить класс
+      description: Ученики класса остаются в школе без класса.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Удалён
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/moderators/assign:
+    post:
+      tags: [moderators]
+      operationId: assignSubjectModerator
+      summary: Назначить модератора на предмет
+      description: Только для администратора. Назначить можно только пользователя с ролью «Модератор».
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/SubjectId'
+      responses:
+        '201':
+          description: Назначение
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubjectModeratorResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/moderators/remove:
+    delete:
+      tags: [moderators]
+      operationId: removeSubjectModerator
+      summary: Снять модератора с предмета
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/SubjectId'
+      responses:
+        '204':
+          description: Снят
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/moderators/subject/{id}:
+    get:
+      tags: [moderators]
+      operationId: getSubjectModerators
+      summary: Модераторы предмета
+      description: Для модераторов и администратора.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Назначения на предмет
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubjectModeratorResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/moderators/my:
+    get:
+      tags: [moderators]
+      operationId: getMySubjects
+      summary: Мои предметы
+      description: Предметы, на которые назначен текущий модератор.
+      responses:
+        '200':
+          description: Назначения текущего модератора
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubjectModeratorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: dovuz_session
+
+  headers:
+    SessionCookie:
+      description: '`dovuz_session=<токен>; HttpOnly; SameSite=Strict; Max-Age=864000; Path=/`'
+      schema:
+        type: string
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    PageNumber:
+      name: pageNumber
+      in: query
+      description: Номер страницы, с нуля
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 1000000
+        default: 0
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 10
+    AccountId:
+      name: accountId
+      in: query
+      required: true
+      schema:
+        type: integer
+    SubjectId:
+      name: subjectId
+      in: query
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    BadRequest:
+      description: Некорректный запрос
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Нужно войти в систему
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Не найдено
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    PayloadTooLarge:
+      description: Файл слишком большой
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    RoleTitle:
+      type: string
+      description: Роль так, как её показывает и сравнивает фронт
+      enum: [Администратор, Модератор, Пользователь]
+      x-enum-varnames: [ADMIN, MODERATOR, USER]
+
+    RoleCode:
+      type: string
+      enum: [ROLE_ADMIN, ROLE_MODERATOR, ROLE_USER]
+
+    Email:
+      type: string
+      description: Непустые части до и после «@», в домене есть точка; без пробелов и управляющих символов
+      maxLength: 254
+      pattern: '^[^@\x00-\x20\x7f]+@[^@\x00-\x20\x7f]+\.[^@\x00-\x20\x7f]+$'
+
+    Nickname:
+      type: string
+      description: 3–32 символа — буквы, цифры, «_», «.», «-»; начинается с буквы или цифры
+      pattern: '^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9_.-]{2,31}$'
+
+    Password:
+      type: string
+      description: 8–72 символа, хотя бы одна заглавная буква, одна строчная и одна цифра
+      minLength: 8
+      maxLength: 72
+
+    Name:
+      type: string
+      minLength: 1
+      maxLength: 300
+
+    PageMeta:
+      type: object
+      required: [total_pages, total_size, page_number, page_size]
+      properties:
+        total_pages:
+          type: integer
+        total_size:
+          type: integer
+        page_number:
+          type: integer
+        page_size:
+          type: integer
+
+    AuthRegisterRequest:
+      type: object
+      required: [email, nickname, password]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        nickname:
+          $ref: '#/components/schemas/Nickname'
+        password:
+          $ref: '#/components/schemas/Password'
+
+    AuthLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+
+    AuthResponse:
+      type: object
+      required: [nickname, role]
+      properties:
+        nickname:
+          type: string
+        role:
+          $ref: '#/components/schemas/RoleTitle'
+
+    AccountResponse:
+      type: object
+      required:
+        - id
+        - nickname
+        - email
+        - firstName
+        - lastName
+        - middleName
+        - birthDate
+        - description
+        - isBanned
+        - role
+        - photoNameInDirectory
+        - schoolId
+        - schoolName
+        - classId
+        - className
+      properties:
+        id:
+          type: integer
+        nickname:
+          type: string
+        email:
+          type: [string, 'null']
+        firstName:
+          type: [string, 'null']
+        lastName:
+          type: [string, 'null']
+        middleName:
+          type: [string, 'null']
+        birthDate:
+          type: [string, 'null']
+          format: date
+        description:
+          type: [string, 'null']
+        isBanned:
+          type: boolean
+        role:
+          $ref: '#/components/schemas/RoleTitle'
+        photoNameInDirectory:
+          type: [string, 'null']
+        schoolId:
+          type: [integer, 'null']
+        schoolName:
+          type: [string, 'null']
+        classId:
+          type: [integer, 'null']
+        className:
+          type: [string, 'null']
+
+    GetAllUserResponse:
+      type: object
+      required:
+        - id
+        - nickname
+        - email
+        - first_name
+        - last_name
+        - middle_name
+        - photo_name_in_directory
+        - school_id
+        - school_name
+        - class_id
+        - class_name
+        - role
+        - is_banned
+        - is_lagging
+        - created_at
+      properties:
+        id:
+          type: integer
+        nickname:
+          type: string
+        email:
+          type: [string, 'null']
+        first_name:
+          type: [string, 'null']
+        last_name:
+          type: [string, 'null']
+        middle_name:
+          type: [string, 'null']
+        photo_name_in_directory:
+          type: [string, 'null']
+        school_id:
+          type: [integer, 'null']
+        school_name:
+          type: [string, 'null']
+        class_id:
+          type: [integer, 'null']
+        class_name:
+          type: [string, 'null']
+        role:
+          $ref: '#/components/schemas/RoleTitle'
+        is_banned:
+          type: boolean
+        is_lagging:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    UserPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/GetAllUserResponse'
+
+    StatusAccountResponse:
+      type: object
+      required: [id, is_banned]
+      properties:
+        id:
+          type: integer
+        is_banned:
+          type: boolean
+
+    UpdateRoleRequest:
+      type: object
+      required: [role_id]
+      properties:
+        role_id:
+          type: integer
+
+    AccountUpdateRoleResponse:
+      type: object
+      required: [id, role]
+      properties:
+        id:
+          type: integer
+        role:
+          $ref: '#/components/schemas/RoleTitle'
+
+    AdminUpdateProfileRequest:
+      type: object
+      properties:
+        first_name:
+          type: [string, 'null']
+          maxLength: 100
+        last_name:
+          type: [string, 'null']
+          maxLength: 100
+        middle_name:
+          type: [string, 'null']
+          maxLength: 100
+        school_id:
+          type: [integer, 'null']
+        class_id:
+          type: [integer, 'null']
+
+    AdminRegisterRequest:
+      type: object
+      required: [email, nickname, password]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        nickname:
+          $ref: '#/components/schemas/Nickname'
+        password:
+          $ref: '#/components/schemas/Password'
+        role_id:
+          type: [integer, 'null']
+          description: Без поля или `null` — «Пользователь»
+        school_id:
+          type: [integer, 'null']
+        class_id:
+          type: [integer, 'null']
+
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password:
+          type: string
+          minLength: 1
+          maxLength: 128
+        new_password:
+          $ref: '#/components/schemas/Password'
+
+    HearingStageStatus:
+      type: object
+      required: [stage, status]
+      properties:
+        stage:
+          type: string
+        status:
+          type: string
+
+    CourseProgressResponse:
+      type: object
+      required:
+        - course_id
+        - course_name
+        - total_lessons
+        - submitted_lessons
+        - accepted_lessons
+        - average_score
+        - max_possible_score
+        - hearing_statuses
+      properties:
+        course_id:
+          type: integer
+        course_name:
+          type: string
+        total_lessons:
+          type: integer
+        submitted_lessons:
+          type: integer
+        accepted_lessons:
+          type: integer
+        average_score:
+          type: number
+        max_possible_score:
+          type: number
+        hearing_statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/HearingStageStatus'
+
+    RoleResponse:
+      type: object
+      description: '`label`, `role` и `name` — одно и то же русское название: фронт читает все три'
+      required: [id, label, role, name, code]
+      properties:
+        id:
+          type: integer
+        label:
+          $ref: '#/components/schemas/RoleTitle'
+        role:
+          $ref: '#/components/schemas/RoleTitle'
+        name:
+          $ref: '#/components/schemas/RoleTitle'
+        code:
+          $ref: '#/components/schemas/RoleCode'
+
+    NameRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          $ref: '#/components/schemas/Name'
+
+    DirectionResponse:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    SubjectResponse:
+      type: object
+      required: [id, name, directionId, directionName]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        directionId:
+          type: integer
+        directionName:
+          type: string
+
+    SubjectCreateRequest:
+      type: object
+      required: [name, directionId]
+      properties:
+        name:
+          $ref: '#/components/schemas/Name'
+        directionId:
+          type: integer
+
+    SubjectPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/SubjectResponse'
+
+    SubjectRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    SubjectTopicResponse:
+      type: object
+      required: [id, name, subject]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        subject:
+          $ref: '#/components/schemas/SubjectRef'
+
+    SubjectTopicCreateRequest:
+      type: object
+      required: [name, subjectId]
+      properties:
+        name:
+          $ref: '#/components/schemas/Name'
+        subjectId:
+          type: integer
+
+    SubjectTopicPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/SubjectTopicResponse'
+
+    FileInfo:
+      type: object
+      required: [id, file_name_in_directory, initial_file_name]
+      properties:
+        id:
+          type: integer
+        file_name_in_directory:
+          type: string
+          description: Имя в хранилище, по нему файл скачивается
+        initial_file_name:
+          type: string
+          description: Имя, под которым файл загрузили
+
+    PublicationResponse:
+      type: object
+      required: [id, title, description, created_at, nickname, files]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        nickname:
+          type: [string, 'null']
+          description: Автор; `null`, если его учётную запись удалили
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+
+    PublicationDetailResponse:
+      type: object
+      required: [id, title, description, created_at, nickname, files, subject_topic_id]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        nickname:
+          type: [string, 'null']
+          description: Автор; `null`, если его учётную запись удалили
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+        subject_topic_id:
+          type: [integer, 'null']
+          description: Тема; у новостей `null`
+
+    PublicationTitleAndId:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+
+    PublicationTitlePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicationTitleAndId'
+
+    PublicationPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicationResponse'
+
+    CommentResponse:
+      type: object
+      required:
+        - id
+        - content
+        - nickname
+        - user_id
+        - created_at
+        - last_updated_at
+        - publication_id
+        - anonymous
+      properties:
+        id:
+          type: integer
+        content:
+          type: string
+        nickname:
+          type: [string, 'null']
+          description: |
+            У анонимного комментария — только для самого автора и администратора,
+            остальным `null`.
+        user_id:
+          type: [integer, 'null']
+          description: Скрывается по тем же правилам, что и `nickname`
+        created_at:
+          type: string
+          format: date-time
+        last_updated_at:
+          type: string
+          format: date-time
+        publication_id:
+          type: integer
+        anonymous:
+          type: boolean
+
+    CommentCreateRequest:
+      type: object
+      required: [content, publication_id]
+      properties:
+        content:
+          $ref: '#/components/schemas/CommentContent'
+        publication_id:
+          type: integer
+        is_anonymous:
+          type: boolean
+          default: false
+
+    CommentReplyRequest:
+      type: object
+      required: [content, parent_comment_id]
+      properties:
+        content:
+          $ref: '#/components/schemas/CommentContent'
+        parent_comment_id:
+          type: integer
+        is_anonymous:
+          type: boolean
+          default: false
+
+    CommentUpdateRequest:
+      type: object
+      required: [id, content]
+      properties:
+        id:
+          type: integer
+        content:
+          $ref: '#/components/schemas/CommentContent'
+
+    CommentContent:
+      type: string
+      minLength: 1
+      maxLength: 5000
+
+    CommentPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/CommentResponse'
+
+    CommentRevisionType:
+      type: string
+      enum: [CREATED, UPDATED, DELETED]
+
+    CommentRevisionResponse:
+      type: object
+      required: [revision, type, content, changed_at]
+      properties:
+        revision:
+          type: integer
+        type:
+          $ref: '#/components/schemas/CommentRevisionType'
+        content:
+          type: string
+        changed_at:
+          type: string
+          format: date-time
+
+    SchoolResponse:
+      type: object
+      required: [id, name, topic_deadline]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        topic_deadline:
+          type: [string, 'null']
+          format: date-time
+          description: Дедлайн выбора темы проекта
+
+    SchoolRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    SchoolClassResponse:
+      type: object
+      required: [id, name, school]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        school:
+          $ref: '#/components/schemas/SchoolRef'
+
+    SchoolClassCreateRequest:
+      type: object
+      required: [name, schoolId]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        schoolId:
+          type: integer
+
+    SubjectModeratorResponse:
+      type: object
+      required: [id, accountId, nickname, subjectId, subjectName]
+      properties:
+        id:
+          type: integer
+        accountId:
+          type: integer
+        nickname:
+          type: string
+        subjectId:
+          type: integer
+        subjectName:
+          type: string
