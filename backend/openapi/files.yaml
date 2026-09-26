@@ -1,0 +1,62 @@
+# Скачивание файлов и картинки для <img>
+
+paths:
+  # /files/{fileNameInDirectory}
+  file:
+    get:
+      tags: [files]
+      operationId: downloadFile
+      summary: Скачать файл
+      description: Вложения новостей и аватарки открыты всем, остальное — после входа.
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - name: fileNameInDirectory
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Содержимое файла как вложение
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /files/photos/{filename}
+  photo:
+    get:
+      tags: [files]
+      operationId: getPhoto
+      summary: Картинка для `<img src>`
+      description: |
+        Доступ как у скачивания. JPEG, PNG, GIF и WebP отдаются для показа в браузере,
+        остальные файлы — как вложение.
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Содержимое файла
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'

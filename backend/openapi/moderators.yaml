@@ -1,0 +1,128 @@
+# Назначение модераторов на предметы
+
+paths:
+  # /admin/moderators/assign
+  assign:
+    post:
+      tags: [moderators]
+      operationId: assignSubjectModerator
+      summary: Назначить модератора на предмет
+      description: Только для администратора. Назначить можно только пользователя с ролью «Модератор».
+      parameters:
+        - $ref: '#/parameters/AccountId'
+        - $ref: '#/parameters/SubjectId'
+      responses:
+        '201':
+          description: Назначение
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SubjectModeratorResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /admin/moderators/remove
+  remove:
+    delete:
+      tags: [moderators]
+      operationId: removeSubjectModerator
+      summary: Снять модератора с предмета
+      parameters:
+        - $ref: '#/parameters/AccountId'
+        - $ref: '#/parameters/SubjectId'
+      responses:
+        '204':
+          description: Снят
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /admin/moderators/subject/{id}
+  by-subject:
+    get:
+      tags: [moderators]
+      operationId: getSubjectModerators
+      summary: Модераторы предмета
+      description: Для модераторов и администратора.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '200':
+          description: Назначения на предмет
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/schemas/SubjectModeratorResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /admin/moderators/my
+  my:
+    get:
+      tags: [moderators]
+      operationId: getMySubjects
+      summary: Мои предметы
+      description: Предметы, на которые назначен текущий модератор.
+      responses:
+        '200':
+          description: Назначения текущего модератора
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/schemas/SubjectModeratorResponse'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+
+schemas:
+  SubjectModeratorResponse:
+    type: object
+    required: [id, accountId, nickname, subjectId, subjectName]
+    properties:
+      id:
+        type: integer
+      accountId:
+        type: integer
+      nickname:
+        type: string
+      subjectId:
+        type: integer
+      subjectName:
+        type: string
+
+parameters:
+  AccountId:
+    name: accountId
+    in: query
+    required: true
+    schema:
+      type: integer
+
+  SubjectId:
+    name: subjectId
+    in: query
+    required: true
+    schema:
+      type: integer

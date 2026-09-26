@@ -1,0 +1,316 @@
+# Комментарии к публикациям и новостям
+
+paths:
+  # /comments
+  comments:
+    get:
+      tags: [comments]
+      operationId: getComments
+      summary: Комментарии к публикации
+      description: Только комментарии верхнего уровня, новые сверху. Для новостей открыты всем.
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - name: publicationId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - $ref: 'common.yaml#/parameters/PageNumber'
+        - $ref: 'common.yaml#/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница комментариев
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/CommentPage'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    post:
+      tags: [comments]
+      operationId: createComment
+      summary: Оставить комментарий
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/CommentCreateRequest'
+      responses:
+        '201':
+          description: Комментарий создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/CommentResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    put:
+      tags: [comments]
+      operationId: updateComment
+      summary: Изменить свой комментарий
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/CommentUpdateRequest'
+      responses:
+        '200':
+          description: Комментарий
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/CommentResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /comments/revisions
+  revisions:
+    get:
+      tags: [comments]
+      operationId: getCommentRevisions
+      summary: История правок комментария
+      description: Для модераторов и администратора. Доступна и после удаления комментария.
+      parameters:
+        - name: commentId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Версии от первой к последней
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/schemas/CommentRevisionResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /comments/create-comment-reply
+  reply:
+    post:
+      tags: [comments]
+      operationId: createCommentReply
+      summary: Ответить на комментарий
+      description: Вложенность двухуровневая — отвечать можно только на комментарий верхнего уровня.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/CommentReplyRequest'
+      responses:
+        '201':
+          description: Ответ создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/CommentResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /comments/{id}
+  comment:
+    get:
+      tags: [comments]
+      operationId: getComment
+      summary: Комментарий по id
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '200':
+          description: Комментарий
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/CommentResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    delete:
+      tags: [comments]
+      operationId: deleteComment
+      summary: Удалить комментарий
+      description: |
+        Свой — автор, любой — администратор, в публикациях предмета —
+        назначенный на него модератор. Удаляется вместе с ответами.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '204':
+          description: Удалён
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /comments/{id}/replies
+  replies:
+    get:
+      tags: [comments]
+      operationId: getCommentReplies
+      summary: Ответы на комментарий
+      description: В порядке написания.
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+        - $ref: 'common.yaml#/parameters/PageNumber'
+        - $ref: 'common.yaml#/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница ответов
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/CommentPage'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+schemas:
+  CommentResponse:
+    type: object
+    required:
+      - id
+      - content
+      - nickname
+      - user_id
+      - created_at
+      - last_updated_at
+      - publication_id
+      - anonymous
+    properties:
+      id:
+        type: integer
+      content:
+        type: string
+      nickname:
+        type: [string, 'null']
+        description: |
+          У анонимного комментария — только для самого автора и администратора,
+          остальным `null`.
+      user_id:
+        type: [integer, 'null']
+        description: Скрывается по тем же правилам, что и `nickname`
+      created_at:
+        type: string
+        format: date-time
+      last_updated_at:
+        type: string
+        format: date-time
+      publication_id:
+        type: integer
+      anonymous:
+        type: boolean
+
+  CommentCreateRequest:
+    type: object
+    required: [content, publication_id]
+    properties:
+      content:
+        $ref: '#/schemas/CommentContent'
+      publication_id:
+        type: integer
+      is_anonymous:
+        type: boolean
+        default: false
+
+  CommentReplyRequest:
+    type: object
+    required: [content, parent_comment_id]
+    properties:
+      content:
+        $ref: '#/schemas/CommentContent'
+      parent_comment_id:
+        type: integer
+      is_anonymous:
+        type: boolean
+        default: false
+
+  CommentUpdateRequest:
+    type: object
+    required: [id, content]
+    properties:
+      id:
+        type: integer
+      content:
+        $ref: '#/schemas/CommentContent'
+
+  CommentContent:
+    type: string
+    minLength: 1
+    maxLength: 5000
+
+  CommentPage:
+    allOf:
+      - $ref: 'common.yaml#/schemas/PageMeta'
+      - type: object
+        required: [content]
+        properties:
+          content:
+            type: array
+            items:
+              $ref: '#/schemas/CommentResponse'
+
+  CommentRevisionType:
+    type: string
+    enum: [CREATED, UPDATED, DELETED]
+
+  CommentRevisionResponse:
+    type: object
+    required: [revision, type, content, changed_at]
+    properties:
+      revision:
+        type: integer
+      type:
+        $ref: '#/schemas/CommentRevisionType'
+      content:
+        type: string
+      changed_at:
+        type: string
+        format: date-time

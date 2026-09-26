@@ -30,7 +30,7 @@ npm start          # http://localhost:3000
 
 От Java (Spring Boot), на которой была написана ВКР, отказались — бэкенд пишем
 на Python заново. Контракт снимаем со слоя `frontend/src/app/api/` в OpenAPI-спеку
-[`backend/openapi/openapi.yaml`](backend/openapi/openapi.yaml); она — источник правды
+[`backend/openapi/`](backend/openapi/), разбитую по тегам; она — источник правды
 для обеих сторон. Из неё генерируются pydantic-модели и роуты FastAPI, а позже —
 типизированный клиент для фронта взамен рукописного слоя `api/`.
 

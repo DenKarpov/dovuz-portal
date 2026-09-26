@@ -1,0 +1,112 @@
+# Классы школ
+
+paths:
+  # /classes
+  classes:
+    post:
+      tags: [classes]
+      operationId: createClass
+      summary: Создать класс в школе
+      description: Только для администратора. Название уникально в пределах школы.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/SchoolClassCreateRequest'
+      responses:
+        '201':
+          description: Класс создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SchoolClassResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /classes/school/{schoolId}
+  by-school:
+    get:
+      tags: [classes]
+      operationId: getClassesBySchool
+      summary: Классы школы
+      parameters:
+        - name: schoolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Классы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/schemas/SchoolClassResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /classes/{id}
+  class:
+    delete:
+      tags: [classes]
+      operationId: deleteClass
+      summary: Удалить класс
+      description: Ученики класса остаются в школе без класса.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '204':
+          description: Удалён
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+schemas:
+  SchoolRef:
+    type: object
+    required: [id, name]
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+
+  SchoolClassResponse:
+    type: object
+    required: [id, name, school]
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      school:
+        $ref: '#/schemas/SchoolRef'
+
+  SchoolClassCreateRequest:
+    type: object
+    required: [name, schoolId]
+    properties:
+      name:
+        type: string
+        minLength: 1
+        maxLength: 50
+      schoolId:
+        type: integer

@@ -1,0 +1,165 @@
+# Публикации в темах предметов
+
+paths:
+  # /publications
+  publications:
+    get:
+      tags: [publications]
+      operationId: getPublicationsByTopic
+      summary: Публикации темы
+      parameters:
+        - name: subjectTopicId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - $ref: 'common.yaml#/parameters/PageNumber'
+        - $ref: 'common.yaml#/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница публикаций, новые сверху
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/PublicationTitlePage'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+    post:
+      tags: [publications]
+      operationId: createPublication
+      summary: Создать публикацию в теме
+      description: Администратору и модераторам, назначенным на предмет темы.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title, subjectTopicId]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                description:
+                  type: string
+                  maxLength: 20000
+                subjectTopicId:
+                  type: integer
+                files:
+                  type: array
+                  description: До 10 файлов, каждый до 50 МБ
+                  maxItems: 10
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '201':
+          description: Публикация создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/PublicationDetailResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+        '413':
+          $ref: 'common.yaml#/responses/PayloadTooLarge'
+
+  # /publications/{id}
+  publication:
+    get:
+      tags: [publications]
+      operationId: getPublication
+      summary: Публикация по id
+      description: Новости открыты всем, публикации из тем — только после входа.
+      security:
+        - {}
+        - sessionCookie: []
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '200':
+          description: Публикация
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/PublicationDetailResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    delete:
+      tags: [publications]
+      operationId: deletePublication
+      summary: Удалить публикацию
+      description: |
+        Публикацию из темы — администратор или модератор предмета,
+        новость — администратор или её автор.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '204':
+          description: Удалена
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+schemas:
+  PublicationDetailResponse:
+    type: object
+    required: [id, title, description, created_at, nickname, files, subject_topic_id]
+    properties:
+      id:
+        type: integer
+      title:
+        type: string
+      description:
+        type: string
+      created_at:
+        type: string
+        format: date-time
+      nickname:
+        type: [string, 'null']
+        description: Автор; `null`, если его учётную запись удалили
+      files:
+        type: array
+        items:
+          $ref: 'common.yaml#/schemas/FileInfo'
+      subject_topic_id:
+        type: [integer, 'null']
+        description: Тема; у новостей `null`
+
+  PublicationTitleAndId:
+    type: object
+    required: [id, title]
+    properties:
+      id:
+        type: integer
+      title:
+        type: string
+
+  PublicationTitlePage:
+    allOf:
+      - $ref: 'common.yaml#/schemas/PageMeta'
+      - type: object
+        required: [content]
+        properties:
+          content:
+            type: array
+            items:
+              $ref: '#/schemas/PublicationTitleAndId'

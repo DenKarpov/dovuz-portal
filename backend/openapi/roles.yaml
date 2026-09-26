@@ -1,0 +1,41 @@
+# Роли
+
+paths:
+  # /roles
+  roles:
+    get:
+      tags: [roles]
+      operationId: getRoles
+      summary: Все роли
+      responses:
+        '200':
+          description: Роли
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/schemas/RoleResponse'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+
+schemas:
+  RoleCode:
+    type: string
+    enum: [ROLE_ADMIN, ROLE_MODERATOR, ROLE_USER]
+
+  RoleResponse:
+    type: object
+    description: '`label`, `role` и `name` — одно и то же русское название: фронт читает все три'
+    required: [id, label, role, name, code]
+    properties:
+      id:
+        type: integer
+      label:
+        $ref: 'common.yaml#/schemas/RoleTitle'
+      role:
+        $ref: 'common.yaml#/schemas/RoleTitle'
+      name:
+        $ref: 'common.yaml#/schemas/RoleTitle'
+      code:
+        $ref: '#/schemas/RoleCode'

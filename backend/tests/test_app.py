@@ -1,11 +1,11 @@
 import subprocess
 import sys
 
-import yaml
 from fastapi.testclient import TestClient
 
 from app.config import BACKEND_DIR
-from app.main import SPEC_PATH, app, create_app
+from app.main import app, create_app
+from app.spec import load_spec
 
 client = TestClient(app)
 SESSION = {"dovuz_session": "test"}
@@ -23,8 +23,7 @@ def test_generated_code_is_up_to_date():
 
 
 def test_docs_are_built_from_contract():
-    spec = yaml.safe_load(SPEC_PATH.read_text(encoding="utf-8"))
-    assert client.get("/openapi.json").json() == spec
+    assert client.get("/openapi.json").json() == load_spec()
 
 
 def test_session_operation_without_cookie_is_401():

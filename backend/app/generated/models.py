@@ -10,13 +10,6 @@ from typing import Annotated
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
 
-class Error(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    message: str
-
-
 class RoleTitle(StrEnum):
     """
     Роль так, как её показывает и сравнивает фронт
@@ -27,44 +20,11 @@ class RoleTitle(StrEnum):
     USER = "Пользователь"
 
 
-class RoleCode(StrEnum):
-    ROLE_ADMIN = "ROLE_ADMIN"
-    ROLE_MODERATOR = "ROLE_MODERATOR"
-    ROLE_USER = "ROLE_USER"
-
-
-class PageMeta(BaseModel):
+class Error(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    total_pages: StrictInt
-    total_size: StrictInt
-    page_number: StrictInt
-    page_size: StrictInt
-
-
-class AuthRegisterRequest(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    email: Annotated[
-        str,
-        Field(
-            max_length=254,
-            pattern="^[^@\\x00-\\x20\\x7f]+@[^@\\x00-\\x20\\x7f]+\\.[^@\\x00-\\x20\\x7f]+$",
-        ),
-    ]
-    """
-    Непустые части до и после «@», в домене есть точка; без пробелов и управляющих символов
-    """
-    nickname: Annotated[str, Field(pattern="^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9_.-]{2,31}$")]
-    """
-    3–32 символа — буквы, цифры, «_», «.», «-»; начинается с буквы или цифры
-    """
-    password: Annotated[str, Field(max_length=72, min_length=8)]
-    """
-    8–72 символа, хотя бы одна заглавная буква, одна строчная и одна цифра
-    """
+    message: str
 
 
 class AuthLoginRequest(BaseModel):
@@ -75,33 +35,14 @@ class AuthLoginRequest(BaseModel):
     password: Annotated[str, Field(max_length=128, min_length=1)]
 
 
-class AuthResponse(BaseModel):
+class PageMeta(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    nickname: str
-    role: RoleTitle
-
-
-class AccountResponse(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    nickname: str
-    email: str | None
-    first_name: Annotated[str | None, Field(alias="firstName")]
-    last_name: Annotated[str | None, Field(alias="lastName")]
-    middle_name: Annotated[str | None, Field(alias="middleName")]
-    birth_date: Annotated[date | None, Field(alias="birthDate")]
-    description: str | None
-    is_banned: Annotated[StrictBool, Field(alias="isBanned")]
-    role: RoleTitle
-    photo_name_in_directory: Annotated[str | None, Field(alias="photoNameInDirectory")]
-    school_id: Annotated[StrictInt | None, Field(alias="schoolId")]
-    school_name: Annotated[str | None, Field(alias="schoolName")]
-    class_id: Annotated[StrictInt | None, Field(alias="classId")]
-    class_name: Annotated[str | None, Field(alias="className")]
+    total_pages: StrictInt
+    total_size: StrictInt
+    page_number: StrictInt
+    page_size: StrictInt
 
 
 class GetAllUserResponse(BaseModel):
@@ -125,11 +66,25 @@ class GetAllUserResponse(BaseModel):
     created_at: AwareDatetime
 
 
-class UserPage(PageMeta):
+class AccountResponse(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    content: list[GetAllUserResponse]
+    id: StrictInt
+    nickname: str
+    email: str | None
+    first_name: Annotated[str | None, Field(alias="firstName")]
+    last_name: Annotated[str | None, Field(alias="lastName")]
+    middle_name: Annotated[str | None, Field(alias="middleName")]
+    birth_date: Annotated[date | None, Field(alias="birthDate")]
+    description: str | None
+    is_banned: Annotated[StrictBool, Field(alias="isBanned")]
+    role: RoleTitle
+    photo_name_in_directory: Annotated[str | None, Field(alias="photoNameInDirectory")]
+    school_id: Annotated[StrictInt | None, Field(alias="schoolId")]
+    school_name: Annotated[str | None, Field(alias="schoolName")]
+    class_id: Annotated[StrictInt | None, Field(alias="classId")]
+    class_name: Annotated[str | None, Field(alias="className")]
 
 
 class StatusAccountResponse(BaseModel):
@@ -138,6 +93,17 @@ class StatusAccountResponse(BaseModel):
     )
     id: StrictInt
     is_banned: StrictBool
+
+
+class AdminUpdateProfileRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    first_name: Annotated[str | None, Field(max_length=100)] = None
+    last_name: Annotated[str | None, Field(max_length=100)] = None
+    middle_name: Annotated[str | None, Field(max_length=100)] = None
+    school_id: StrictInt | None = None
+    class_id: StrictInt | None = None
 
 
 class UpdateRoleRequest(BaseModel):
@@ -155,15 +121,23 @@ class AccountUpdateRoleResponse(BaseModel):
     role: RoleTitle
 
 
-class AdminUpdateProfileRequest(BaseModel):
+class HearingStageStatus(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    first_name: Annotated[str | None, Field(max_length=100)] = None
-    last_name: Annotated[str | None, Field(max_length=100)] = None
-    middle_name: Annotated[str | None, Field(max_length=100)] = None
-    school_id: StrictInt | None = None
-    class_id: StrictInt | None = None
+    stage: str
+    status: str
+
+
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    current_password: Annotated[str, Field(max_length=128, min_length=1)]
+    new_password: Annotated[str, Field(max_length=72, min_length=8)]
+    """
+    8–72 символа, хотя бы одна заглавная буква, одна строчная и одна цифра
+    """
 
 
 class AdminRegisterRequest(BaseModel):
@@ -196,23 +170,213 @@ class AdminRegisterRequest(BaseModel):
     class_id: StrictInt | None = None
 
 
-class ChangePasswordRequest(BaseModel):
+class RoleCode(StrEnum):
+    ROLE_ADMIN = "ROLE_ADMIN"
+    ROLE_MODERATOR = "ROLE_MODERATOR"
+    ROLE_USER = "ROLE_USER"
+
+
+class DirectionResponse(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    current_password: Annotated[str, Field(max_length=128, min_length=1)]
-    new_password: Annotated[str, Field(max_length=72, min_length=8)]
+    id: StrictInt
+    name: str
+
+
+class SubjectResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: StrictInt
+    name: str
+    direction_id: Annotated[StrictInt, Field(alias="directionId")]
+    direction_name: Annotated[str, Field(alias="directionName")]
+
+
+class SubjectCreateRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    name: Annotated[str, Field(max_length=300, min_length=1)]
+    direction_id: Annotated[StrictInt, Field(alias="directionId")]
+
+
+class SubjectRef(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: StrictInt
+    name: str
+
+
+class SubjectTopicCreateRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    name: Annotated[str, Field(max_length=300, min_length=1)]
+    subject_id: Annotated[StrictInt, Field(alias="subjectId")]
+
+
+class PublicationTitleAndId(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: StrictInt
+    title: str
+
+
+class FileInfo(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: StrictInt
+    file_name_in_directory: str
+    """
+    Имя в хранилище, по нему файл скачивается
+    """
+    initial_file_name: str
+    """
+    Имя, под которым файл загрузили
+    """
+
+
+class PublicationResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: StrictInt
+    title: str
+    description: str
+    created_at: AwareDatetime
+    nickname: str | None
+    """
+    Автор; `null`, если его учётную запись удалили
+    """
+    files: list[FileInfo]
+
+
+class CommentResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: StrictInt
+    content: str
+    nickname: str | None
+    """
+    У анонимного комментария — только для самого автора и администратора,
+    остальным `null`.
+
+    """
+    user_id: StrictInt | None
+    """
+    Скрывается по тем же правилам, что и `nickname`
+    """
+    created_at: AwareDatetime
+    last_updated_at: AwareDatetime
+    publication_id: StrictInt
+    anonymous: StrictBool
+
+
+class CommentUpdateRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: StrictInt
+    content: Annotated[str, Field(max_length=5000, min_length=1)]
+
+
+class CommentRevisionType(StrEnum):
+    CREATED = "CREATED"
+    UPDATED = "UPDATED"
+    DELETED = "DELETED"
+
+
+class CommentReplyRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    content: Annotated[str, Field(max_length=5000, min_length=1)]
+    parent_comment_id: StrictInt
+    is_anonymous: StrictBool = False
+
+
+class SchoolResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: StrictInt
+    name: str
+    topic_deadline: AwareDatetime | None
+    """
+    Дедлайн выбора темы проекта
+    """
+
+
+class SchoolClassCreateRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    name: Annotated[str, Field(max_length=50, min_length=1)]
+    school_id: Annotated[StrictInt, Field(alias="schoolId")]
+
+
+class SchoolRef(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: StrictInt
+    name: str
+
+
+class SubjectModeratorResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: StrictInt
+    account_id: Annotated[StrictInt, Field(alias="accountId")]
+    nickname: str
+    subject_id: Annotated[StrictInt, Field(alias="subjectId")]
+    subject_name: Annotated[str, Field(alias="subjectName")]
+
+
+class AuthRegisterRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    email: Annotated[
+        str,
+        Field(
+            max_length=254,
+            pattern="^[^@\\x00-\\x20\\x7f]+@[^@\\x00-\\x20\\x7f]+\\.[^@\\x00-\\x20\\x7f]+$",
+        ),
+    ]
+    """
+    Непустые части до и после «@», в домене есть точка; без пробелов и управляющих символов
+    """
+    nickname: Annotated[str, Field(pattern="^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9_.-]{2,31}$")]
+    """
+    3–32 символа — буквы, цифры, «_», «.», «-»; начинается с буквы или цифры
+    """
+    password: Annotated[str, Field(max_length=72, min_length=8)]
     """
     8–72 символа, хотя бы одна заглавная буква, одна строчная и одна цифра
     """
 
 
-class HearingStageStatus(BaseModel):
+class AuthResponse(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    stage: str
-    status: str
+    nickname: str
+    role: RoleTitle
+
+
+class UserPage(PageMeta):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    content: list[GetAllUserResponse]
 
 
 class CourseProgressResponse(BaseModel):
@@ -251,45 +415,11 @@ class NameRequest(BaseModel):
     name: Annotated[str, Field(max_length=300, min_length=1)]
 
 
-class DirectionResponse(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    name: str
-
-
-class SubjectResponse(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    name: str
-    direction_id: Annotated[StrictInt, Field(alias="directionId")]
-    direction_name: Annotated[str, Field(alias="directionName")]
-
-
-class SubjectCreateRequest(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    name: Annotated[str, Field(max_length=300, min_length=1)]
-    direction_id: Annotated[StrictInt, Field(alias="directionId")]
-
-
 class SubjectPage(PageMeta):
     model_config = ConfigDict(
         populate_by_name=True,
     )
     content: list[SubjectResponse]
-
-
-class SubjectRef(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    name: str
 
 
 class SubjectTopicResponse(BaseModel):
@@ -301,49 +431,11 @@ class SubjectTopicResponse(BaseModel):
     subject: SubjectRef
 
 
-class SubjectTopicCreateRequest(BaseModel):
+class PublicationTitlePage(PageMeta):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    name: Annotated[str, Field(max_length=300, min_length=1)]
-    subject_id: Annotated[StrictInt, Field(alias="subjectId")]
-
-
-class SubjectTopicPage(PageMeta):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    content: list[SubjectTopicResponse]
-
-
-class FileInfo(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    file_name_in_directory: str
-    """
-    Имя в хранилище, по нему файл скачивается
-    """
-    initial_file_name: str
-    """
-    Имя, под которым файл загрузили
-    """
-
-
-class PublicationResponse(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    title: str
-    description: str
-    created_at: AwareDatetime
-    nickname: str | None
-    """
-    Автор; `null`, если его учётную запись удалили
-    """
-    files: list[FileInfo]
+    content: list[PublicationTitleAndId]
 
 
 class PublicationDetailResponse(BaseModel):
@@ -365,48 +457,11 @@ class PublicationDetailResponse(BaseModel):
     """
 
 
-class PublicationTitleAndId(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    title: str
-
-
-class PublicationTitlePage(PageMeta):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    content: list[PublicationTitleAndId]
-
-
 class PublicationPage(PageMeta):
     model_config = ConfigDict(
         populate_by_name=True,
     )
     content: list[PublicationResponse]
-
-
-class CommentResponse(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    content: str
-    nickname: str | None
-    """
-    У анонимного комментария — только для самого автора и администратора,
-    остальным `null`.
-
-    """
-    user_id: StrictInt | None
-    """
-    Скрывается по тем же правилам, что и `nickname`
-    """
-    created_at: AwareDatetime
-    last_updated_at: AwareDatetime
-    publication_id: StrictInt
-    anonymous: StrictBool
 
 
 class CommentPage(PageMeta):
@@ -416,10 +471,13 @@ class CommentPage(PageMeta):
     content: list[CommentResponse]
 
 
-class CommentRevisionType(StrEnum):
-    CREATED = "CREATED"
-    UPDATED = "UPDATED"
-    DELETED = "DELETED"
+class CommentCreateRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    content: Annotated[str, Field(max_length=5000, min_length=1)]
+    publication_id: StrictInt
+    is_anonymous: StrictBool = False
 
 
 class CommentRevisionResponse(BaseModel):
@@ -432,26 +490,6 @@ class CommentRevisionResponse(BaseModel):
     changed_at: AwareDatetime
 
 
-class SchoolResponse(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    name: str
-    topic_deadline: AwareDatetime | None
-    """
-    Дедлайн выбора темы проекта
-    """
-
-
-class SchoolRef(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    name: str
-
-
 class SchoolClassResponse(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -461,46 +499,8 @@ class SchoolClassResponse(BaseModel):
     school: SchoolRef
 
 
-class SchoolClassCreateRequest(BaseModel):
+class SubjectTopicPage(PageMeta):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    name: Annotated[str, Field(max_length=50, min_length=1)]
-    school_id: Annotated[StrictInt, Field(alias="schoolId")]
-
-
-class SubjectModeratorResponse(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    account_id: Annotated[StrictInt, Field(alias="accountId")]
-    nickname: str
-    subject_id: Annotated[StrictInt, Field(alias="subjectId")]
-    subject_name: Annotated[str, Field(alias="subjectName")]
-
-
-class CommentCreateRequest(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    content: Annotated[str, Field(max_length=5000, min_length=1)]
-    publication_id: StrictInt
-    is_anonymous: StrictBool = False
-
-
-class CommentReplyRequest(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    content: Annotated[str, Field(max_length=5000, min_length=1)]
-    parent_comment_id: StrictInt
-    is_anonymous: StrictBool = False
-
-
-class CommentUpdateRequest(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: StrictInt
-    content: Annotated[str, Field(max_length=5000, min_length=1)]
+    content: list[SubjectTopicResponse]

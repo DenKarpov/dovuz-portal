@@ -1,0 +1,79 @@
+# Школы
+
+paths:
+  # /schools
+  schools:
+    get:
+      tags: [schools]
+      operationId: getSchools
+      summary: Все школы
+      responses:
+        '200':
+          description: Школы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/schemas/SchoolResponse'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+    post:
+      tags: [schools]
+      operationId: createSchool
+      summary: Создать школу
+      description: Только для администратора. Название уникально без учёта регистра.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'common.yaml#/schemas/NameRequest'
+      responses:
+        '201':
+          description: Школа создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SchoolResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+
+  # /schools/{id}
+  school:
+    delete:
+      tags: [schools]
+      operationId: deleteSchool
+      summary: Удалить школу
+      description: Вместе с классами. Ученики остаются, но теряют привязку к школе и классу.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '204':
+          description: Удалена
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+schemas:
+  SchoolResponse:
+    type: object
+    required: [id, name, topic_deadline]
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      topic_deadline:
+        type: [string, 'null']
+        format: date-time
+        description: Дедлайн выбора темы проекта

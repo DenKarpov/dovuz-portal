@@ -1,0 +1,133 @@
+# Общее для нескольких тегов: ошибки, пагинация, роли, поля учётной записи, файлы
+
+schemas:
+  Error:
+    type: object
+    required: [message]
+    properties:
+      message:
+        type: string
+
+  RoleTitle:
+    type: string
+    description: Роль так, как её показывает и сравнивает фронт
+    enum: [Администратор, Модератор, Пользователь]
+    x-enum-varnames: [ADMIN, MODERATOR, USER]
+
+  Email:
+    type: string
+    description: Непустые части до и после «@», в домене есть точка; без пробелов и управляющих символов
+    maxLength: 254
+    pattern: '^[^@\x00-\x20\x7f]+@[^@\x00-\x20\x7f]+\.[^@\x00-\x20\x7f]+$'
+
+  Nickname:
+    type: string
+    description: 3–32 символа — буквы, цифры, «_», «.», «-»; начинается с буквы или цифры
+    pattern: '^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9_.-]{2,31}$'
+
+  Password:
+    type: string
+    description: 8–72 символа, хотя бы одна заглавная буква, одна строчная и одна цифра
+    minLength: 8
+    maxLength: 72
+
+  Name:
+    type: string
+    minLength: 1
+    maxLength: 300
+
+  PageMeta:
+    type: object
+    required: [total_pages, total_size, page_number, page_size]
+    properties:
+      total_pages:
+        type: integer
+      total_size:
+        type: integer
+      page_number:
+        type: integer
+      page_size:
+        type: integer
+
+  NameRequest:
+    type: object
+    required: [name]
+    properties:
+      name:
+        $ref: '#/schemas/Name'
+
+  FileInfo:
+    type: object
+    required: [id, file_name_in_directory, initial_file_name]
+    properties:
+      id:
+        type: integer
+      file_name_in_directory:
+        type: string
+        description: Имя в хранилище, по нему файл скачивается
+      initial_file_name:
+        type: string
+        description: Имя, под которым файл загрузили
+
+parameters:
+  Id:
+    name: id
+    in: path
+    required: true
+    schema:
+      type: integer
+
+  PageNumber:
+    name: pageNumber
+    in: query
+    description: Номер страницы, с нуля
+    schema:
+      type: integer
+      minimum: 0
+      maximum: 1000000
+      default: 0
+
+  PageSize:
+    name: pageSize
+    in: query
+    schema:
+      type: integer
+      minimum: 1
+      maximum: 1000
+      default: 10
+
+responses:
+  BadRequest:
+    description: Некорректный запрос
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/Error'
+
+  Unauthorized:
+    description: Нужно войти в систему
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/Error'
+
+  Forbidden:
+    description: Недостаточно прав
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/Error'
+
+  NotFound:
+    description: Не найдено
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/Error'
+
+  PayloadTooLarge:
+    description: Файл слишком большой
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/Error'

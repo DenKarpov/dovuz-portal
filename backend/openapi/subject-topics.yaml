@@ -1,0 +1,162 @@
+# Темы предмета
+
+paths:
+  # /subject-topics
+  topics:
+    get:
+      tags: [subject-topics]
+      operationId: getSubjectTopics
+      summary: Темы предмета
+      parameters:
+        - name: subjectId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - $ref: 'common.yaml#/parameters/PageNumber'
+        - $ref: 'common.yaml#/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница тем
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SubjectTopicPage'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+    post:
+      tags: [subject-topics]
+      operationId: createSubjectTopic
+      summary: Создать тему
+      description: Администратору и модераторам, назначенным на предмет.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/SubjectTopicCreateRequest'
+      responses:
+        '201':
+          description: Тема создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SubjectTopicResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /subject-topics/{id}
+  topic:
+    get:
+      tags: [subject-topics]
+      operationId: getSubjectTopic
+      summary: Тема по id
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '200':
+          description: Тема
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SubjectTopicResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    put:
+      tags: [subject-topics]
+      operationId: updateSubjectTopic
+      summary: Переименовать тему
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'common.yaml#/schemas/NameRequest'
+      responses:
+        '200':
+          description: Тема
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SubjectTopicResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    delete:
+      tags: [subject-topics]
+      operationId: deleteSubjectTopic
+      summary: Удалить тему
+      description: Вместе с публикациями и их файлами.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '204':
+          description: Удалена
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+schemas:
+  SubjectRef:
+    type: object
+    required: [id, name]
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+
+  SubjectTopicResponse:
+    type: object
+    required: [id, name, subject]
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      subject:
+        $ref: '#/schemas/SubjectRef'
+
+  SubjectTopicCreateRequest:
+    type: object
+    required: [name, subjectId]
+    properties:
+      name:
+        $ref: 'common.yaml#/schemas/Name'
+      subjectId:
+        type: integer
+
+  SubjectTopicPage:
+    allOf:
+      - $ref: 'common.yaml#/schemas/PageMeta'
+      - type: object
+        required: [content]
+        properties:
+          content:
+            type: array
+            items:
+              $ref: '#/schemas/SubjectTopicResponse'

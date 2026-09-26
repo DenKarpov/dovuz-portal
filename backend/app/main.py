@@ -1,10 +1,7 @@
-from typing import Any
-
-import yaml
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import BACKEND_DIR, settings
+from app.config import settings
 from app.errors import CatchAllMiddleware, install_error_handlers
 from app.generated.api import build_api_router
 from app.generated.api.accounts import AccountsApi
@@ -20,13 +17,8 @@ from app.generated.api.roles import RolesApi
 from app.generated.api.schools import SchoolsApi
 from app.generated.api.subject_topics import SubjectTopicsApi
 from app.generated.api.subjects import SubjectsApi
+from app.spec import load_spec
 from app.stubs import not_implemented
-
-SPEC_PATH = BACKEND_DIR / "openapi" / "openapi.yaml"
-
-
-def load_spec() -> dict[str, Any]:
-    return yaml.safe_load(SPEC_PATH.read_text(encoding="utf-8"))
 
 
 def create_app() -> FastAPI:

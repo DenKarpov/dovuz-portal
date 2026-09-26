@@ -1,7 +1,7 @@
 # Бэкенд ДоВуз-Портала
 
 Python 3.13 + FastAPI. Подход spec-first: источник правды — контракт
-[`openapi/openapi.yaml`](openapi/openapi.yaml), слой API из него генерируется.
+в [`openapi/`](openapi/), слой API из него генерируется.
 Контракт снят со слоя `frontend/src/app/api/` и повторяет его без изменений,
 чтобы фронт заработал без переделки.
 
@@ -12,7 +12,8 @@ Python 3.13 + FastAPI. Подход spec-first: источник правды �
 
 | Что | Где | Откуда |
 |---|---|---|
-| Контракт | `openapi/openapi.yaml` | пишется руками |
+| Контракт | `openapi/*.yaml` | пишется руками |
+| Сборка контракта в один документ | `app/spec.py` | пишется руками |
 | Модели запросов и ответов | `app/generated/models.py` | datamodel-codegen |
 | Роуты FastAPI и интерфейсы `<Тег>Api` | `app/generated/api/` | `codegen/generate.py` |
 | Проверка куки сессии | `app/generated/security.py` | `codegen/generate.py` |
@@ -38,6 +39,24 @@ class DirectionsService(DirectionsApi):
 в multipart-ручках, а `python-fastapi` из OpenAPI Generator объявляет поля форм
 и query как `StrictInt` — строку `"5"` из формы такое поле не принимает.
 
+## Как устроен контракт
+
+```
+openapi/
+  openapi.yaml    корень: info, servers, security, теги и оглавление путей
+  common.yaml     общее для нескольких тегов: ошибки, пагинация, роли, поля учётной записи
+  <тег>.yaml      пути тега и DTO, которые нужны только им, — как app/generated/api/<тег>.py
+```
+
+В файле тега пути лежат под `paths:` по коротким ключам, URL написан комментарием
+над ключом. Корень связывает URL с ключом: `/accounts/{id}/ban: {$ref: 'accounts.yaml#/paths/ban'}`.
+Схема, нужная одному тегу, живёт в его файле (`$ref: '#/schemas/AccountResponse'`),
+общая — в `common.yaml` (`$ref: 'common.yaml#/schemas/Error'`).
+
+`app/spec.py` собирает всё в один документ: его отдаёт `/openapi.json`, его же видят
+генератор и тесты. Сборка падает, если одно имя объявлено в двух файлах, если схема
+или путь нигде не используются и если на файл никто не ссылается.
+
 ## Запуск
 
 ```bash
@@ -50,7 +69,7 @@ Swagger с контрактом — http://localhost:8080/docs. Без куки 
 
 ## Как поменять контракт
 
-1. Правим `openapi/openapi.yaml`.
+1. Правим файл тега в `openapi/`; новый URL — ещё и строка в оглавлении `openapi/openapi.yaml`.
 2. `uv run python codegen/generate.py`
 3. Дописываем реализацию новых методов.
 

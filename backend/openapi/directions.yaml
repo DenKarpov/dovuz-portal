@@ -1,0 +1,121 @@
+# Направления — верхний уровень иерархии материалов
+
+paths:
+  # /directions
+  directions:
+    get:
+      tags: [directions]
+      operationId: getDirections
+      summary: Все направления
+      responses:
+        '200':
+          description: Направления
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/schemas/DirectionResponse'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+    post:
+      tags: [directions]
+      operationId: createDirection
+      summary: Создать направление
+      description: Только для администратора. Название уникально без учёта регистра.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'common.yaml#/schemas/NameRequest'
+      responses:
+        '201':
+          description: Направление создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/DirectionResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+
+  # /directions/{id}
+  direction:
+    get:
+      tags: [directions]
+      operationId: getDirection
+      summary: Направление по id
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '200':
+          description: Направление
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/DirectionResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    put:
+      tags: [directions]
+      operationId: updateDirection
+      summary: Переименовать направление
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'common.yaml#/schemas/NameRequest'
+      responses:
+        '200':
+          description: Направление
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/DirectionResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    delete:
+      tags: [directions]
+      operationId: deleteDirection
+      summary: Удалить направление
+      description: Вместе с предметами, темами, публикациями и их файлами.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '204':
+          description: Удалено
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+schemas:
+  DirectionResponse:
+    type: object
+    required: [id, name]
+    properties:
+      id:
+        type: integer
+      name:
+        type: string

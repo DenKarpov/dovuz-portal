@@ -1,0 +1,155 @@
+# Предметы направления
+
+paths:
+  # /subjects
+  subjects:
+    get:
+      tags: [subjects]
+      operationId: getSubjects
+      summary: Предметы направления
+      parameters:
+        - name: directionId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - $ref: 'common.yaml#/parameters/PageNumber'
+        - $ref: 'common.yaml#/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница предметов
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SubjectPage'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+    post:
+      tags: [subjects]
+      operationId: createSubject
+      summary: Создать предмет
+      description: Только для администратора. Название уникально в пределах направления.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/SubjectCreateRequest'
+      responses:
+        '201':
+          description: Предмет создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SubjectResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /subjects/{id}
+  subject:
+    get:
+      tags: [subjects]
+      operationId: getSubject
+      summary: Предмет по id
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '200':
+          description: Предмет
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SubjectResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    put:
+      tags: [subjects]
+      operationId: updateSubject
+      summary: Переименовать предмет
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'common.yaml#/schemas/NameRequest'
+      responses:
+        '200':
+          description: Предмет
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/SubjectResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    delete:
+      tags: [subjects]
+      operationId: deleteSubject
+      summary: Удалить предмет
+      description: Вместе с темами, публикациями и их файлами.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '204':
+          description: Удалён
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+schemas:
+  SubjectResponse:
+    type: object
+    required: [id, name, directionId, directionName]
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      directionId:
+        type: integer
+      directionName:
+        type: string
+
+  SubjectCreateRequest:
+    type: object
+    required: [name, directionId]
+    properties:
+      name:
+        $ref: 'common.yaml#/schemas/Name'
+      directionId:
+        type: integer
+
+  SubjectPage:
+    allOf:
+      - $ref: 'common.yaml#/schemas/PageMeta'
+      - type: object
+        required: [content]
+        properties:
+          content:
+            type: array
+            items:
+              $ref: '#/schemas/SubjectResponse'

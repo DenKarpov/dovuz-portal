@@ -1,4 +1,4 @@
-# Сгенерировано codegen/generate.py из openapi/openapi.yaml, руками не править.
+# Сгенерировано codegen/generate.py из контракта в openapi/, руками не править.
 
 from abc import ABC, abstractmethod
 from typing import Annotated

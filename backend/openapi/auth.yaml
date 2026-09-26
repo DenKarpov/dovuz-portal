@@ -1,0 +1,121 @@
+# Регистрация, вход и выход
+
+paths:
+  # /auth/register
+  register:
+    post:
+      tags: [auth]
+      operationId: register
+      summary: Регистрация
+      description: Создаёт учётную запись с ролью «Пользователь» и сразу открывает сессию.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/AuthRegisterRequest'
+      responses:
+        '201':
+          description: Учётная запись создана, сессия открыта
+          headers:
+            Set-Cookie:
+              $ref: '#/headers/SessionCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/AuthResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+
+  # /auth/login
+  login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Вход по email и паролю
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/AuthLoginRequest'
+      responses:
+        '200':
+          description: Сессия открыта
+          headers:
+            Set-Cookie:
+              $ref: '#/headers/SessionCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/AuthResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          description: Неверный email или пароль
+          content:
+            application/json:
+              schema:
+                $ref: 'common.yaml#/schemas/Error'
+        '403':
+          description: Учётная запись заблокирована
+          content:
+            application/json:
+              schema:
+                $ref: 'common.yaml#/schemas/Error'
+
+  # /auth/logout
+  logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Выход
+      description: Закрывает текущую сессию и стирает куку. Без сессии тоже отвечает 204.
+      security:
+        - {}
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Сессия закрыта
+
+schemas:
+  AuthRegisterRequest:
+    type: object
+    required: [email, nickname, password]
+    properties:
+      email:
+        $ref: 'common.yaml#/schemas/Email'
+      nickname:
+        $ref: 'common.yaml#/schemas/Nickname'
+      password:
+        $ref: 'common.yaml#/schemas/Password'
+
+  AuthLoginRequest:
+    type: object
+    required: [email, password]
+    properties:
+      email:
+        type: string
+        minLength: 1
+        maxLength: 254
+      password:
+        type: string
+        minLength: 1
+        maxLength: 128
+
+  AuthResponse:
+    type: object
+    required: [nickname, role]
+    properties:
+      nickname:
+        type: string
+      role:
+        $ref: 'common.yaml#/schemas/RoleTitle'
+
+headers:
+  SessionCookie:
+    description: '`dovuz_session=<токен>; HttpOnly; SameSite=Strict; Max-Age=864000; Path=/`'
+    schema:
+      type: string

@@ -25,11 +25,10 @@ dev = [
 [tool.uv]
 package = false
 
-# Модели для app/generated/models.py; запускается из codegen/generate.py
+# Модели для app/generated/models.py. Запускается только из codegen/generate.py:
+# он собирает контракт из openapi/ и сам передаёт --input и --output
 [tool.datamodel-codegen]
-input = "openapi/openapi.yaml"
 input-file-type = "openapi"
-output = "app/generated/models.py"
 output-model-type = "pydantic_v2.BaseModel"
 target-python-version = "3.12"
 snake-case-field = true

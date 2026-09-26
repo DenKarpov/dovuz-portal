@@ -1,6 +1,6 @@
-"""Генерирует серверный слой из openapi/openapi.yaml.
+"""Генерирует серверный слой из контракта в openapi/.
 
-Пишет в app/generated/:
+Контракт сначала собирается в один документ (app/spec.py), затем пишется в app/generated/:
   models.py          pydantic-модели (datamodel-codegen, настройки в pyproject.toml);
   security.py        проверки из components.securitySchemes;
   api/<тег>.py       абстрактный класс <Тег>Api и build_router(), который вешает
@@ -31,7 +31,10 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 ROOT = Path(__file__).resolve().parent.parent
-SPEC = ROOT / "openapi" / "openapi.yaml"
+sys.path.insert(0, str(ROOT))
+
+from app.spec import SpecError, bundle  # noqa: E402
+
 OUTPUT = ROOT / "app" / "generated"
 TEMPLATES = Path(__file__).resolve().parent / "templates"
 HTTP_METHODS = ("get", "post", "put", "patch", "delete")
@@ -77,10 +80,6 @@ class SecurityScheme:
     @property
     def dependency(self) -> str:
         return f"require_{snake_case(self.key)}"
-
-
-class SpecError(Exception):
-    pass
 
 
 def snake_case(name: str) -> str:
@@ -360,14 +359,23 @@ def render(spec: dict[str, Any], output: Path) -> None:
 
 
 def generate(output: Path) -> None:
-    spec = yaml.safe_load(SPEC.read_text(encoding="utf-8"))
+    spec = bundle()
     output.mkdir(parents=True, exist_ok=True)
     python = [sys.executable, "-m"]
-    subprocess.run(
-        [*python, "datamodel_code_generator", "--output", str(output / "models.py")],
-        cwd=ROOT,
-        check=True,
-    )
+    with tempfile.TemporaryDirectory() as tmp:
+        bundled = Path(tmp) / "openapi.yaml"
+        bundled.write_text(
+            yaml.safe_dump(spec, allow_unicode=True, sort_keys=False), encoding="utf-8"
+        )
+        subprocess.run(
+            [
+                *python,
+                "datamodel_code_generator",
+                *("--input", str(bundled), "--output", str(output / "models.py")),
+            ],
+            cwd=ROOT,
+            check=True,
+        )
     render(spec, output)
     files = [str(path) for path in sorted(output.rglob("*.py"))]
     ruff = [*python, "ruff"]

@@ -1,0 +1,98 @@
+# Новостная лента
+
+paths:
+  # /news_publications
+  news:
+    get:
+      tags: [news]
+      operationId: getNews
+      summary: Лента новостей
+      description: Открыта всем, новые сверху.
+      security: []
+      parameters:
+        - $ref: 'common.yaml#/parameters/PageNumber'
+        - $ref: 'common.yaml#/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница новостей
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/PublicationPage'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+    post:
+      tags: [news]
+      operationId: createNews
+      summary: Опубликовать новость
+      description: Для модераторов и администратора.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                description:
+                  type: string
+                  maxLength: 20000
+                files:
+                  type: array
+                  description: До 10 файлов, каждый до 50 МБ
+                  maxItems: 10
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '201':
+          description: Новость опубликована
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/PublicationResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '413':
+          $ref: 'common.yaml#/responses/PayloadTooLarge'
+
+schemas:
+  PublicationResponse:
+    type: object
+    required: [id, title, description, created_at, nickname, files]
+    properties:
+      id:
+        type: integer
+      title:
+        type: string
+      description:
+        type: string
+      created_at:
+        type: string
+        format: date-time
+      nickname:
+        type: [string, 'null']
+        description: Автор; `null`, если его учётную запись удалили
+      files:
+        type: array
+        items:
+          $ref: 'common.yaml#/schemas/FileInfo'
+
+  PublicationPage:
+    allOf:
+      - $ref: 'common.yaml#/schemas/PageMeta'
+      - type: object
+        required: [content]
+        properties:
+          content:
+            type: array
+            items:
+              $ref: '#/schemas/PublicationResponse'

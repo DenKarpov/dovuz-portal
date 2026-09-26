@@ -1,0 +1,610 @@
+# Профили и управление пользователями
+
+paths:
+  # /accounts
+  accounts:
+    get:
+      tags: [accounts]
+      operationId: getAllUsers
+      summary: Все пользователи
+      description: Только для администратора.
+      parameters:
+        - $ref: 'common.yaml#/parameters/PageNumber'
+        - $ref: 'common.yaml#/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/UserPage'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+    put:
+      tags: [accounts]
+      operationId: saveInfo
+      summary: Правка своего профиля
+      description: |
+        Меняются только переданные поля. Школа и класс проверяются на
+        согласованность: класс должен принадлежать выбранной школе.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  $ref: 'common.yaml#/schemas/Nickname'
+                firstName:
+                  type: string
+                  maxLength: 100
+                lastName:
+                  type: string
+                  maxLength: 100
+                middleName:
+                  type: string
+                  maxLength: 100
+                birthDate:
+                  type: string
+                  format: date
+                description:
+                  type: string
+                  maxLength: 2000
+                schoolId:
+                  type: integer
+                classId:
+                  type: integer
+                photo:
+                  type: string
+                  format: binary
+                  description: Изображение JPEG, PNG, GIF или WebP, до 10 МБ
+      responses:
+        '200':
+          description: Обновлённый профиль
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/AccountResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+        '413':
+          $ref: 'common.yaml#/responses/PayloadTooLarge'
+
+  # /accounts/{account}
+  account:
+    get:
+      tags: [accounts]
+      operationId: getAccount
+      summary: Профиль по никнейму
+      description: Email виден владельцу профиля, модераторам и администратору, остальным — `null`.
+      parameters:
+        - name: account
+          in: path
+          required: true
+          description: Никнейм
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Профиль
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/AccountResponse'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+    delete:
+      tags: [accounts]
+      operationId: deleteUser
+      summary: Удалить пользователя
+      description: Только для администратора, себя удалить нельзя.
+      parameters:
+        - name: account
+          in: path
+          required: true
+          description: Идентификатор учётной записи
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Удалён
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /accounts/{id}/ban
+  ban:
+    post:
+      tags: [accounts]
+      operationId: banUser
+      summary: Заблокировать
+      description: Закрывает все сессии пользователя. Только для администратора.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '200':
+          description: Новый статус
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/StatusAccountResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /accounts/{id}/unban
+  unban:
+    post:
+      tags: [accounts]
+      operationId: unbanUser
+      summary: Разблокировать
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      responses:
+        '200':
+          description: Новый статус
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/StatusAccountResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /accounts/{id}/profile
+  profile:
+    patch:
+      tags: [accounts]
+      operationId: adminUpdateUser
+      summary: Правка профиля администратором
+      description: |
+        Меняются только переданные поля. `null` в `school_id` отвязывает от школы
+        и класса, `null` в `class_id` — только от класса.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/AdminUpdateProfileRequest'
+      responses:
+        '200':
+          description: Обновлённый пользователь
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/GetAllUserResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /accounts/{id}/role
+  role:
+    put:
+      tags: [accounts]
+      operationId: updateRole
+      summary: Сменить роль
+      description: |
+        Только для администратора, свою роль сменить нельзя. При снятии роли
+        модератора снимаются и его назначения на предметы.
+      parameters:
+        - $ref: 'common.yaml#/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: Новая роль
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/AccountUpdateRoleResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /accounts/{nickname}/course-progress
+  course-progress:
+    get:
+      tags: [accounts]
+      operationId: getCourseProgress
+      summary: Прогресс по курсам
+      description: По каждому курсу пользователя — занятия, баллы и статусы слушаний.
+      parameters:
+        - name: nickname
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Прогресс по каждому курсу
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/schemas/CourseProgressResponse'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /accounts/school/{schoolId}
+  by-school:
+    get:
+      tags: [accounts]
+      operationId: getBySchool
+      summary: Пользователи школы
+      description: Для модераторов и администратора.
+      parameters:
+        - name: schoolId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: 'common.yaml#/parameters/PageNumber'
+        - $ref: 'common.yaml#/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/UserPage'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /accounts/class/{classId}
+  by-class:
+    get:
+      tags: [accounts]
+      operationId: getByClass
+      summary: Пользователи класса
+      description: Модераторам и администратору — любой класс, ученику — только свой.
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: 'common.yaml#/parameters/PageNumber'
+        - $ref: 'common.yaml#/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/UserPage'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+  # /accounts/me/password
+  my-password:
+    put:
+      tags: [accounts]
+      operationId: changePassword
+      summary: Сменить пароль
+      description: Остальные сессии пользователя закрываются, текущая остаётся.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Пароль изменён
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+
+  # /accounts/admin/register
+  admin-register:
+    post:
+      tags: [accounts]
+      operationId: adminRegisterUser
+      summary: Создать пользователя администратором
+      description: Без `role_id` создаётся «Пользователь».
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/schemas/AdminRegisterRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/schemas/GetAllUserResponse'
+        '400':
+          $ref: 'common.yaml#/responses/BadRequest'
+        '401':
+          $ref: 'common.yaml#/responses/Unauthorized'
+        '403':
+          $ref: 'common.yaml#/responses/Forbidden'
+        '404':
+          $ref: 'common.yaml#/responses/NotFound'
+
+schemas:
+  AccountResponse:
+    type: object
+    required:
+      - id
+      - nickname
+      - email
+      - firstName
+      - lastName
+      - middleName
+      - birthDate
+      - description
+      - isBanned
+      - role
+      - photoNameInDirectory
+      - schoolId
+      - schoolName
+      - classId
+      - className
+    properties:
+      id:
+        type: integer
+      nickname:
+        type: string
+      email:
+        type: [string, 'null']
+      firstName:
+        type: [string, 'null']
+      lastName:
+        type: [string, 'null']
+      middleName:
+        type: [string, 'null']
+      birthDate:
+        type: [string, 'null']
+        format: date
+      description:
+        type: [string, 'null']
+      isBanned:
+        type: boolean
+      role:
+        $ref: 'common.yaml#/schemas/RoleTitle'
+      photoNameInDirectory:
+        type: [string, 'null']
+      schoolId:
+        type: [integer, 'null']
+      schoolName:
+        type: [string, 'null']
+      classId:
+        type: [integer, 'null']
+      className:
+        type: [string, 'null']
+
+  GetAllUserResponse:
+    type: object
+    required:
+      - id
+      - nickname
+      - email
+      - first_name
+      - last_name
+      - middle_name
+      - photo_name_in_directory
+      - school_id
+      - school_name
+      - class_id
+      - class_name
+      - role
+      - is_banned
+      - is_lagging
+      - created_at
+    properties:
+      id:
+        type: integer
+      nickname:
+        type: string
+      email:
+        type: [string, 'null']
+      first_name:
+        type: [string, 'null']
+      last_name:
+        type: [string, 'null']
+      middle_name:
+        type: [string, 'null']
+      photo_name_in_directory:
+        type: [string, 'null']
+      school_id:
+        type: [integer, 'null']
+      school_name:
+        type: [string, 'null']
+      class_id:
+        type: [integer, 'null']
+      class_name:
+        type: [string, 'null']
+      role:
+        $ref: 'common.yaml#/schemas/RoleTitle'
+      is_banned:
+        type: boolean
+      is_lagging:
+        type: boolean
+      created_at:
+        type: string
+        format: date-time
+
+  UserPage:
+    allOf:
+      - $ref: 'common.yaml#/schemas/PageMeta'
+      - type: object
+        required: [content]
+        properties:
+          content:
+            type: array
+            items:
+              $ref: '#/schemas/GetAllUserResponse'
+
+  StatusAccountResponse:
+    type: object
+    required: [id, is_banned]
+    properties:
+      id:
+        type: integer
+      is_banned:
+        type: boolean
+
+  UpdateRoleRequest:
+    type: object
+    required: [role_id]
+    properties:
+      role_id:
+        type: integer
+
+  AccountUpdateRoleResponse:
+    type: object
+    required: [id, role]
+    properties:
+      id:
+        type: integer
+      role:
+        $ref: 'common.yaml#/schemas/RoleTitle'
+
+  AdminUpdateProfileRequest:
+    type: object
+    properties:
+      first_name:
+        type: [string, 'null']
+        maxLength: 100
+      last_name:
+        type: [string, 'null']
+        maxLength: 100
+      middle_name:
+        type: [string, 'null']
+        maxLength: 100
+      school_id:
+        type: [integer, 'null']
+      class_id:
+        type: [integer, 'null']
+
+  AdminRegisterRequest:
+    type: object
+    required: [email, nickname, password]
+    properties:
+      email:
+        $ref: 'common.yaml#/schemas/Email'
+      nickname:
+        $ref: 'common.yaml#/schemas/Nickname'
+      password:
+        $ref: 'common.yaml#/schemas/Password'
+      role_id:
+        type: [integer, 'null']
+        description: Без поля или `null` — «Пользователь»
+      school_id:
+        type: [integer, 'null']
+      class_id:
+        type: [integer, 'null']
+
+  ChangePasswordRequest:
+    type: object
+    required: [current_password, new_password]
+    properties:
+      current_password:
+        type: string
+        minLength: 1
+        maxLength: 128
+      new_password:
+        $ref: 'common.yaml#/schemas/Password'
+
+  HearingStageStatus:
+    type: object
+    required: [stage, status]
+    properties:
+      stage:
+        type: string
+      status:
+        type: string
+
+  CourseProgressResponse:
+    type: object
+    required:
+      - course_id
+      - course_name
+      - total_lessons
+      - submitted_lessons
+      - accepted_lessons
+      - average_score
+      - max_possible_score
+      - hearing_statuses
+    properties:
+      course_id:
+        type: integer
+      course_name:
+        type: string
+      total_lessons:
+        type: integer
+      submitted_lessons:
+        type: integer
+      accepted_lessons:
+        type: integer
+      average_score:
+        type: number
+      max_possible_score:
+        type: number
+      hearing_statuses:
+        type: array
+        items:
+          $ref: '#/schemas/HearingStageStatus'
