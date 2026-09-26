@@ -1,0 +1,44 @@
+name: frontend
+
+# Без фильтра по путям: обязательная проверка должна отчитаться в каждом PR,
+# иначе PR без изменений во frontend/ навсегда повиснет в ожидании
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Зависимости из package-lock.json
+        run: npm ci
+
+      - name: Типы
+        run: npx tsc --noEmit
+
+      - name: Сборка
+        # С CI=true CRA считает предупреждения eslint ошибками, а старых предупреждений
+        # во фронте много. Когда их вычистим — убрать
+        env:
+          CI: false
+        run: npm run build
